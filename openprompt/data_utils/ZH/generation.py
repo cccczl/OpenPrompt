@@ -80,17 +80,14 @@ class PC(DataProcessor):
 
     def get_examples(self, data_dir, split):
         path = os.path.join(data_dir, f"{split}.jsonl")
-        
+
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
                 story = example_json["story"].split("<MASK>")
                 example = InputExample(
-                    meta = {
-                        "text": story[0] + "[空白]" + story[1],
-                        "blank": "[空白]",
-                    },
-                    tgt_text = example_json["plot"],
+                    meta={"text": f"{story[0]}[空白]{story[1]}", "blank": "[空白]"},
+                    tgt_text=example_json["plot"],
                 )
                 examples.append(example)
                 

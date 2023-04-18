@@ -69,10 +69,10 @@ class KnowledgeableVerbalizer(ManualVerbalizer):
         r"""add prefix to label words. For example, if a label words is in the middle of a template,
         the prefix should be ' '.
         """
-        new_label_words = []
-        for words in label_words:
-            new_label_words.append([prefix + word.lstrip(prefix) for word in words])
-        return new_label_words
+        return [
+            [prefix + word.lstrip(prefix) for word in words]
+            for words in label_words
+        ]
 
     def generate_parameters(self) -> List:
         r"""In basic manual template, the parameters are generated from label words directly.
@@ -89,9 +89,9 @@ class KnowledgeableVerbalizer(ManualVerbalizer):
                 if self.max_token_split>0  and len(ids) > self.max_token_split:
                     # in knowledgebale verbalizer, the labelwords may be very rare, so we may
                     # want to remove the label words which are not recogonized by tokenizer.
-                    logger.warning("Word {} is split into {} (>{}) tokens: {}. Ignored.".format(word, \
-                                    len(ids), self.max_token_split,
-                                    self.tokenizer.convert_ids_to_tokens(ids)))
+                    logger.warning(
+                        f"Word {word} is split into {len(ids)} (>{self.max_token_split}) tokens: {self.tokenizer.convert_ids_to_tokens(ids)}. Ignored."
+                    )
                     continue
                 else:
                     words_keep_per_label.append(word)
@@ -102,8 +102,10 @@ class KnowledgeableVerbalizer(ManualVerbalizer):
 
 
 
-        max_len  = max([max([len(ids) for ids in ids_per_label]) for ids_per_label in all_ids])
-        max_num_label_words = max([len(ids_per_label) for ids_per_label in all_ids])
+        max_len = max(
+            max(len(ids) for ids in ids_per_label) for ids_per_label in all_ids
+        )
+        max_num_label_words = max(len(ids_per_label) for ids_per_label in all_ids)
         words_ids_mask = torch.zeros(max_num_label_words, max_len)
         words_ids_mask = [[[1]*len(ids) + [0]*(max_len-len(ids)) for ids in ids_per_label]
                              + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
@@ -118,7 +120,10 @@ class KnowledgeableVerbalizer(ManualVerbalizer):
         self.words_ids_mask = nn.Parameter(words_ids_mask, requires_grad=False) # A 3-d mask
         self.label_words_mask = nn.Parameter(torch.clamp(words_ids_mask.sum(dim=-1), max=1), requires_grad=False)
         self.label_words_weights = nn.Parameter(torch.zeros(self.num_classes, max_num_label_words), requires_grad=True)
-        print("##Num of label words for each label: {}".format(self.label_words_mask.sum(-1).cpu().tolist()), flush=True)
+        print(
+            f"##Num of label words for each label: {self.label_words_mask.sum(-1).cpu().tolist()}",
+            flush=True,
+        )
         # print(self.label_words_ids.data.shape, flush=True)
         # print(self.words_ids_mask.data.shape, flush=True)
         # print(self.label_words_mask.data.shape, flush=True)
@@ -143,7 +148,11 @@ class KnowledgeableVerbalizer(ManualVerbalizer):
             for j_word, word_ids in enumerate(words_ids_per_label):
                 if j_word >= len(self.label_words[i_label]):
                     break
-                if len((set(word_ids).difference(set([0]))).intersection(rm_calibrate_ids)) == 0:
+                if (
+                    not set(word_ids)
+                    .difference({0})
+                    .intersection(rm_calibrate_ids)
+                ):
                     new_label_words[-1].append(self.label_words[i_label][j_word])
         self.label_words = new_label_words
         self.to(self._calibrate_logits.device)
@@ -169,10 +178,18 @@ class KnowledgeableVerbalizer(ManualVerbalizer):
         Returns:
             :obj:`torch.Tensor`: The aggregated logits from the label words.
         """
-        if not self.training:
-            label_words_weights = F.softmax(self.pred_temp*self.label_words_weights-10000*(1-self.label_words_mask), dim=-1)
-        else:
-            label_words_weights = F.softmax(self.label_words_weights-10000*(1-self.label_words_mask), dim=-1)
+        label_words_weights = (
+            F.softmax(
+                self.label_words_weights - 10000 * (1 - self.label_words_mask),
+                dim=-1,
+            )
+            if self.training
+            else F.softmax(
+                self.pred_temp * self.label_words_weights
+                - 10000 * (1 - self.label_words_mask),
+                dim=-1,
+            )
+        )
         label_words_logits = (label_words_logits * self.label_words_mask * label_words_weights).sum(-1)
         return label_words_logits
 

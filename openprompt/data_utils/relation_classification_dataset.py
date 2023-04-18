@@ -54,7 +54,7 @@ class TACREDProcessor(DataProcessor):
         ])
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "{}.json".format(split))
+        path = os.path.join(data_dir, f"{split}.json")
         examples = []
         with open(path, encoding='utf8') as f:
             example_jsons = json.load(f)
@@ -176,7 +176,7 @@ class SemEvalProcessor(DataProcessor):
         self.labels = ["Other", "Member-Collection(e1,e2)", "Entity-Destination(e1,e2)", "Content-Container(e1,e2)", "Message-Topic(e1,e2)", "Entity-Origin(e1,e2)", "Cause-Effect(e1,e2)", "Product-Producer(e1,e2)", "Instrument-Agency(e1,e2)", "Component-Whole(e1,e2)", "Member-Collection(e2,e1)", "Entity-Destination(e2,e1)", "Content-Container(e2,e1)", "Message-Topic(e2,e1)", "Entity-Origin(e2,e1)", "Cause-Effect(e2,e1)", "Product-Producer(e2,e1)", "Instrument-Agency(e2,e1)", "Component-Whole(e2,e1)"]
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         examples = []
         with open(path, encoding='utf8') as f:
             for choicex, line in enumerate(f):

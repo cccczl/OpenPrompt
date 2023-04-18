@@ -75,7 +75,7 @@ class SPP(DataProcessor):
 
     def get_examples(self, data_dir, split):
         path = os.path.join(data_dir, f"{split}.jsonl")
-        
+
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
@@ -87,11 +87,11 @@ class SPP(DataProcessor):
                     if story[i: i+6] == '[MASK]':
                         count += 1
                         modified.append(f"[空白{count}]")
-                        i = i + 6
+                        i += 6
                     else:
                         modified.append(story[i])
-                        i = i + 1
-                        
+                        i += 1
+
                 example = InputExample(
                     meta = {
                         "story": "".join(modified),
@@ -215,7 +215,7 @@ class ChiD(DataProcessor):
         with open(path, encoding='utf8') as f:
             answer_map = json.load(f)
         path = os.path.join(data_dir, f"{split}.json")
-        
+
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
@@ -226,18 +226,17 @@ class ChiD(DataProcessor):
                     i = 0
                     while i < len(content):
                         if content[i: i+6] == '#idiom':
-                            modified.append(f"[空白]")
+                            modified.append("[空白]")
                             j = i+6
-                            while j < len(content):
-                                if content[j]=='#': break
+                            while j < len(content) and content[j] != '#':
                                 j = j+1
                             j += 1
                             answers.append(candidates[answer_map[content[i:j]]])
                             i = j
                         else:
                             modified.append(content[i])
-                            i = i + 1
-                            
+                            i += 1
+
                     example = InputExample(
                         meta = {
                             "text": "".join(modified),

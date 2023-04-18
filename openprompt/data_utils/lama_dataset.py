@@ -50,7 +50,7 @@ class LAMAProcessor(DataProcessor):
         super().__init__()
         self.relation_id = relation_id
         self.tokenizer = tokenizer
-        path = os.path.join(base_path, "single_relations/{}.jsonl".format(relation_id))
+        path = os.path.join(base_path, f"single_relations/{relation_id}.jsonl")
         with open(path, encoding='utf8') as f:
             template = json.loads(f.readline())["template"]
             if 'gpt' in model_name or 'megatron' in model_name: # TODO generalize to all LM kind model
@@ -91,7 +91,9 @@ class LAMAProcessor(DataProcessor):
         return self.manual_template
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "fact-retrieval/original/{}/{}.jsonl".format(self.relation_id, split)) # TODO oprinal_rob or trex option
+        path = os.path.join(
+            data_dir, f"fact-retrieval/original/{self.relation_id}/{split}.jsonl"
+        )
         examples = []
         with open(path, encoding='utf8') as f:
             for choicex, line in enumerate(f):

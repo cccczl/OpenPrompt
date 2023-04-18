@@ -72,7 +72,10 @@ class T5TokenizerWrapper(TokenizerWrapper):
                     else:
                         loss_ids.append(0)
                     encode_text = [self.mask_token_ids(num_mask_token_used)]
-                    tgt_text_ids = self.tokenizer.encode(" " + tgt_text[num_mask_token_used], add_special_tokens=False)
+                    tgt_text_ids = self.tokenizer.encode(
+                        f" {tgt_text[num_mask_token_used]}",
+                        add_special_tokens=False,
+                    )
                     decoder_input_ids.extend(tgt_text_ids)
                     loss_ids.extend([1] * len(tgt_text_ids))
                 else:
@@ -86,7 +89,7 @@ class T5TokenizerWrapper(TokenizerWrapper):
                     if to_replace is not None:
                         piece['text'] = to_replace
                     else:
-                        raise KeyError("This tokenizer doesn't specify {} token.".format(piece['text']))
+                        raise KeyError(f"This tokenizer doesn't specify {piece['text']} token.")
 
                 if 'soft_token_ids' in piece and piece['soft_token_ids']!=0:
                     encode_text =  [0] # can be replace by any token, since these token will use their own embeddings
@@ -116,8 +119,7 @@ class T5TokenizerWrapper(TokenizerWrapper):
         # padding
         encoder_inputs = self.padding(input_dict=encoder_inputs, max_len=self.max_seq_length, pad_id_for_inputs=self.tokenizer.pad_token_id)
 
-        all_input_ids = {**encoder_inputs, **decoder_inputs}
-        return all_input_ids
+        return {**encoder_inputs, **decoder_inputs}
 
     def truncate_decoder_inputs(self, inputs):
         if self.decode_from_pad:
@@ -195,14 +197,16 @@ class T5LMTokenizerWrapper(TokenizerWrapper):
                 if teacher_forcing:
                     decoder_input_ids.append(self.mask_token_ids(num_mask_token_used))
                     loss_ids.append(0)
-                    encode_text = []
-                    tgt_text_ids = self.tokenizer.encode(" " + tgt_text[num_mask_token_used], add_special_tokens=False)
+                    tgt_text_ids = self.tokenizer.encode(
+                        f" {tgt_text[num_mask_token_used]}",
+                        add_special_tokens=False,
+                    )
                     decoder_input_ids.extend(tgt_text_ids)
                     loss_ids.extend([1] * len(tgt_text_ids))
                 else:
                     decoder_input_ids.append(self.mask_token_ids(num_mask_token_used))
-                    encode_text = [] # not add extra_id_0 to input_ids
                     loss_ids.append(1)
+                encode_text = []
                 break
             else:
                 if piece['text'] in self.special_tokens_maps.keys():
@@ -210,7 +214,7 @@ class T5LMTokenizerWrapper(TokenizerWrapper):
                     if to_replace is not None:
                         piece['text'] = to_replace
                     else:
-                        raise KeyError("This tokenizer doesn't specify {} token.".format(piece['text']))
+                        raise KeyError(f"This tokenizer doesn't specify {piece['text']} token.")
 
                 if 'soft_token_ids' in piece and piece['soft_token_ids']!=0:
                     encode_text =  [0] # can be replace by any token, since these token will use their own embeddings
@@ -240,8 +244,7 @@ class T5LMTokenizerWrapper(TokenizerWrapper):
         # padding
         encoder_inputs = self.padding(input_dict=encoder_inputs, max_len=self.max_seq_length, pad_id_for_inputs=self.tokenizer.pad_token_id)
 
-        all_input_ids = {**encoder_inputs, **decoder_inputs}
-        return all_input_ids
+        return {**encoder_inputs, **decoder_inputs}
 
     def truncate_decoder_inputs(self, inputs):
         if self.decode_from_pad:
@@ -322,7 +325,10 @@ class CPM2TokenizerWrapper(TokenizerWrapper):
                 if teacher_forcing:
                     decoder_input_ids.append(self.mask_token_ids(num_mask_token_used))
                     encode_text = [self.mask_token_ids(num_mask_token_used)]
-                    tgt_text_ids = self.tokenizer.encode(" " + tgt_text[num_mask_token_used], add_special_tokens=False)
+                    tgt_text_ids = self.tokenizer.encode(
+                        f" {tgt_text[num_mask_token_used]}",
+                        add_special_tokens=False,
+                    )
                     decoder_input_ids.extend(tgt_text_ids)
                     loss_ids.extend([1] * len(tgt_text_ids))
                     # decoder_input_ids.append(self.mask_token_ids(num_mask_token_used+1))
@@ -340,7 +346,7 @@ class CPM2TokenizerWrapper(TokenizerWrapper):
                     if to_replace is not None:
                         piece['text'] = to_replace
                     else:
-                        raise KeyError("This tokenizer doesn't specify {} token.".format(piece['text']))
+                        raise KeyError(f"This tokenizer doesn't specify {piece['text']} token.")
 
                 if 'soft_token_ids' in piece and piece['soft_token_ids']!=0:
                     encode_text =  [0] # can be replace by any token, since these token will use their own embeddings
@@ -370,8 +376,7 @@ class CPM2TokenizerWrapper(TokenizerWrapper):
         # padding
         encoder_inputs = self.padding(input_dict=encoder_inputs, max_len=self.max_seq_length, pad_id_for_inputs=self.tokenizer.pad_token_id)
 
-        all_input_ids = {**encoder_inputs, **decoder_inputs}
-        return all_input_ids
+        return {**encoder_inputs, **decoder_inputs}
 
     def truncate_decoder_inputs(self, inputs):
         if self.decode_from_start:

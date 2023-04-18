@@ -119,8 +119,22 @@ class BaseRunner(object):
             no_decay = self.config.plm.optimize.no_decay
             weight_decay = self.config.plm.optimize.weight_decay
             optimizer_grouped_parameters = [
-                {'params': [p for n, p in self.inner_model.plm.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': weight_decay},
-                {'params': [p for n, p in self.inner_model.plm.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+                {
+                    'params': [
+                        p
+                        for n, p in self.inner_model.plm.named_parameters()
+                        if all(nd not in n for nd in no_decay)
+                    ],
+                    'weight_decay': weight_decay,
+                },
+                {
+                    'params': [
+                        p
+                        for n, p in self.inner_model.plm.named_parameters()
+                        if any(nd in n for nd in no_decay)
+                    ],
+                    'weight_decay': 0.0,
+                },
             ]
 
             plm_optimizer = AdamW(
@@ -233,24 +247,22 @@ class BaseRunner(object):
         logger.info(f"Saving checkpoint {self.checkpoint_path(ckpt)}...")
         state_dict = {
             "state_dict": self.inner_model.state_dict(),
-        }
-        state_dict.update(extra)
-
+        } | extra
         if save_state:
             state_dict["optimizer"] = [opt.state_dict() if isinstance(opt, torch.optim.Optimizer) else None for opt in self.optimizers]
             with warnings.catch_warnings(record=True):
                 state_dict["scheduler"] = [sch.state_dict() if isinstance(sch, torch.optim.lr_scheduler._LRScheduler) else None for sch in self.schedulers]
 
-            state_dict.update({
+            state_dict |= {
                 "cur_epoch": self.cur_epoch,
                 "best_score": self.best_score,
                 "global_step": self.global_step,
-            })
+            }
         torch.save(state_dict, self.checkpoint_path(ckpt), pickle_module = dill)
         if copy:
             logger.info(f"Copying checkpoint {self.checkpoint_path(ckpt)} to {self.checkpoint_path(copy)}...")
             shutil.copyfile(self.checkpoint_path(ckpt), self.checkpoint_path(copy))
-        logger.info(f"Save Checkpoint finished")
+        logger.info("Save Checkpoint finished")
 
     def save_results(self, split, results:dict):
         if self.clean: return
@@ -266,7 +278,7 @@ class BaseRunner(object):
         with torch.no_grad():
             data_loader = self.valid_dataloader if split=='validation' else self.test_dataloader
             for batch_idx, batch in enumerate(tqdm(data_loader, desc=split)):
-                batch = batch.to("cuda:{}".format(self.config.environment.local_rank)).to_dict()
+                batch = batch.to(f"cuda:{self.config.environment.local_rank}").to_dict()
 
                 outputs.append( self.inference_step(batch, batch_idx) )
 
@@ -283,7 +295,7 @@ class BaseRunner(object):
         sum_loss = 0.0
         with tqdm(total=self.steps_per_epoch, desc=f"train epoch: {epoch}") as pbar:
             for batch_idx, batch in enumerate(self.train_dataloader):
-                batch = batch.to("cuda:{}".format(self.config.environment.local_rank)).to_dict()
+                batch = batch.to(f"cuda:{self.config.environment.local_rank}").to_dict()
 
                 loss = self.training_step(batch, batch_idx)
 
@@ -325,9 +337,8 @@ class BaseRunner(object):
         self.configure_optimizers()
 
 
-        if ckpt:
-            if not self.load_checkpoint(ckpt):
-                logger.warning("Train from scratch instead ...")
+        if ckpt and not self.load_checkpoint(ckpt):
+            logger.warning("Train from scratch instead ...")
         if self.cur_epoch == 0:
             self.on_fit_start()
 
@@ -345,10 +356,9 @@ class BaseRunner(object):
         return self.best_score
 
     def test(self, ckpt: Optional[str] = None) -> dict:
-        if ckpt:
-            if not self.load_checkpoint(ckpt, load_state = False):
-                logger.error("Test cannot be performed")
-                exit()
+        if ckpt and not self.load_checkpoint(ckpt, load_state=False):
+            logger.error("Test cannot be performed")
+            exit()
         return self.inference_epoch("test")
 
     def run(self, ckpt: Optional[str] = None) -> dict:
@@ -426,8 +436,7 @@ class ClassificationRunner(BaseRunner):
 
     def training_step(self, batch, batch_idx):
         logits = self.model(batch)
-        loss = self.loss_function(logits, batch['label'])
-        return loss
+        return self.loss_function(logits, batch['label'])
 
     def on_fit_start(self):
         """Some initialization works"""
@@ -437,7 +446,7 @@ class ClassificationRunner(BaseRunner):
         verbalizer_config = self.config[self.config.verbalizer]
         template_config = self.config[self.config.template]
         if not hasattr(self.inner_model.verbalizer, "optimize_to_initialize" ) and \
-            not hasattr(self.inner_model.template, "optimize_to_initialize" ):
+                not hasattr(self.inner_model.template, "optimize_to_initialize" ):
             return None
         if hasattr(verbalizer_config, "init_using_split"):
             using_split = verbalizer_config.init_using_split
@@ -454,8 +463,8 @@ class ClassificationRunner(BaseRunner):
             raise NotImplementedError
 
         with torch.no_grad():
-            for batch in tqdm(dataloader, desc="Init_using_{}".format(using_split)):
-                batch = batch.to("cuda:{}".format(self.config.environment.local_rank)).to_dict()
+            for batch in tqdm(dataloader, desc=f"Init_using_{using_split}"):
+                batch = batch.to(f"cuda:{self.config.environment.local_rank}").to_dict()
                 logits = self.model(batch)
             if hasattr(self.inner_model.verbalizer, "optimize_to_initialize" ):
                 self.inner_model.verbalizer.optimize_to_initialize()
@@ -516,5 +525,4 @@ class GenerationRunner(BaseRunner):
         return metrics
 
     def training_step(self, batch, batch_idx):
-        loss = self.model(batch)
-        return loss
+        return self.model(batch)

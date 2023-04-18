@@ -2,8 +2,11 @@
 from openprompt.data_utils.text_classification_dataset import AgnewsProcessor
 
 
-dataset = {}
-dataset['train'] = AgnewsProcessor().get_train_examples("./datasets/TextClassification/agnews")
+dataset = {
+    'train': AgnewsProcessor().get_train_examples(
+        "./datasets/TextClassification/agnews"
+    )
+}
 # We sample a few examples to form the few-shot training pool
 from openprompt.data_utils.data_sampler import FewShotSampler
 sampler  = FewShotSampler(num_examples_per_label=16, num_examples_per_label_dev=16, also_sample_dev=True)
@@ -60,8 +63,22 @@ no_decay = ['bias', 'LayerNorm.weight']
 
 # it's always good practice to set no decay to biase and LayerNorm parameters
 optimizer_grouped_parameters1 = [
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if all(nd not in n for nd in no_decay)
+        ],
+        'weight_decay': 0.01,
+    },
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if any(nd in n for nd in no_decay)
+        ],
+        'weight_decay': 0.0,
+    },
 ]
 
 # Using different optimizer for prompt parameters and model parameters
@@ -76,7 +93,7 @@ optimizer1 = AdamW(optimizer_grouped_parameters1, lr=3e-5)
 optimizer2 = AdamW(optimizer_grouped_parameters2)
 
 
-for epoch in range(5):
+for _ in range(5):
     tot_loss = 0
     for step, inputs in enumerate(train_dataloader):
         if use_cuda:
@@ -112,7 +129,7 @@ for step, inputs in enumerate(validation_dataloader):
     alllabels.extend(labels.cpu().tolist())
     allpreds.extend(torch.argmax(logits, dim=-1).cpu().tolist())
 
-acc = sum([int(i==j) for i,j in zip(allpreds, alllabels)])/len(allpreds)
+acc = sum(int(i==j) for i,j in zip(allpreds, alllabels)) / len(allpreds)
 print("validation:",acc)
 
 
@@ -129,6 +146,6 @@ for step, inputs in enumerate(test_dataloader):
     labels = inputs['label']
     alllabels.extend(labels.cpu().tolist())
     allpreds.extend(torch.argmax(logits, dim=-1).cpu().tolist())
-acc = sum([int(i==j) for i,j in zip(allpreds, alllabels)])/len(allpreds)
+acc = sum(int(i==j) for i,j in zip(allpreds, alllabels)) / len(allpreds)
 print("test:", acc)  # roughly ~0.85
 

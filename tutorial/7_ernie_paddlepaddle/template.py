@@ -82,11 +82,7 @@ class ErnieManualTemplate(paddle.nn.Layer):
                                  example,
                                  text = None,
                                 ):
-        if text is None:
-            text = self.text.copy()
-        else:
-            text = text.copy()
-
+        text = self.text.copy() if text is None else text.copy()
         for i, d in enumerate(text):
             if 'placeholder' in d:
                 text[i] = d["add_prefix_space"] + d.get("post_processing", lambda x:x)(getattr(example, d['placeholder']))
@@ -108,11 +104,7 @@ class ErnieManualTemplate(paddle.nn.Layer):
         r"""check whether the template format is correct.
         TODO: add more
         """
-        mask_num = 0
-        for i, d in enumerate(self.text):
-            if 'mask' in d:
-                mask_num += 1
-
+        mask_num = sum('mask' in d for d in self.text)
         if mask_num==0:
             raise RuntimeError(f"'mask' position not found in the template: {self.text}. Please Check!")
 
@@ -126,20 +118,17 @@ class ErnieManualTemplate(paddle.nn.Layer):
             d = {"add_prefix_space": ' ' if (i > 0 and text[i-1] == ' ') else ''}
             while i < len(text) and text[i] == ' ':
                 d["add_prefix_space"] = ' '
-                i = i + 1
+                i += 1
             if i == len(text): break
 
+            j = i + 1
             if text[i] != self.mixed_token_start:
-                j = i + 1
-                while j < len(text):
-                    if text[j] == self.mixed_token_start:
-                        break
+                while j < len(text) and text[j] != self.mixed_token_start:
                     j = j + 1
                 d["text"] = text[i:j].rstrip(' ')
                 i = j
 
             else:
-                j = i + 1
                 mixed_token_cnt = 1 # { {} {} } nested support
                 while j < len(text):
                     if text[j] == self.mixed_token_end:
@@ -155,7 +144,7 @@ class ErnieManualTemplate(paddle.nn.Layer):
                     val = eval(dict_str)
                     if isinstance(val, set):
                         val = {k: None for k in val}
-                    d.update(val)
+                    d |= val
                 except:
                     import traceback
                     print(traceback.format_exc())
@@ -187,42 +176,41 @@ class ErnieManualTemplate(paddle.nn.Layer):
 
         if self.text is None:
             raise ValueError("template text has not been initialized")
-        if isinstance(example, InputExample):
-            text = self.incorporate_text_example(example)
+        if not isinstance(example, InputExample):
+            raise TypeError("InputExample")
+        text = self.incorporate_text_example(example)
 
-            not_empty_keys = example.keys()
-            for placeholder_token in self.placeholder_mapping:
-                not_empty_keys.remove(self.placeholder_mapping[placeholder_token]) # placeholder has been processed, remove
-            not_empty_keys.remove('meta') # meta has been processed
+        not_empty_keys = example.keys()
+        for placeholder_token in self.placeholder_mapping:
+            not_empty_keys.remove(self.placeholder_mapping[placeholder_token]) # placeholder has been processed, remove
+        not_empty_keys.remove('meta') # meta has been processed
 
-            keys, values= ['text'], [text]
-            for inputflag_name in self.registered_inputflag_names:
-                keys.append(inputflag_name)
-                v = None
-                if hasattr(self, inputflag_name) and getattr(self, inputflag_name) is not None:
-                    v = getattr(self, inputflag_name)
-                elif hasattr(self, "get_default_"+inputflag_name):
-                    v = getattr(self, "get_default_"+inputflag_name)()
-                    setattr(self, inputflag_name, v) # cache
-                else:
-                    raise ValueError("""
+        keys, values= ['text'], [text]
+        for inputflag_name in self.registered_inputflag_names:
+            keys.append(inputflag_name)
+            v = None
+            if hasattr(self, inputflag_name) and getattr(self, inputflag_name) is not None:
+                v = getattr(self, inputflag_name)
+            elif hasattr(self, f"get_default_{inputflag_name}"):
+                v = getattr(self, f"get_default_{inputflag_name}")()
+                setattr(self, inputflag_name, v) # cache
+            else:
+                raise ValueError("""
                     Template's inputflag '{}' is registered but not initialize.
                     Try using template.{} = [...] to initialize
                     or create an method get_default_{}(self) in your template.
                     """.format(inputflag_name, inputflag_name, inputflag_name))
 
-                if len(v) != len(text):
-                    raise ValueError("Template: len({})={} doesn't match len(text)={}."\
-                        .format(inputflag_name, len(v), len(text)))
-                values.append(v)
-            wrapped_parts_to_tokenize = []
-            for piece in list(zip(*values)):
-                wrapped_parts_to_tokenize.append(dict(zip(keys, piece)))
-
-            wrapped_parts_not_tokenize = {key: getattr(example, key) for key in not_empty_keys}
-            return [wrapped_parts_to_tokenize, wrapped_parts_not_tokenize]
-        else:
-            raise TypeError("InputExample")
+            if len(v) != len(text):
+                raise ValueError(
+                    f"Template: len({inputflag_name})={len(v)} doesn't match len(text)={len(text)}."
+                )
+            values.append(v)
+        wrapped_parts_to_tokenize = [
+            dict(zip(keys, piece)) for piece in list(zip(*values))
+        ]
+        wrapped_parts_not_tokenize = {key: getattr(example, key) for key in not_empty_keys}
+        return [wrapped_parts_to_tokenize, wrapped_parts_not_tokenize]
 
     @abstractmethod
     def process_batch(self, batch):

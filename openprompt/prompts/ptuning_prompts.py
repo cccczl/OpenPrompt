@@ -39,7 +39,7 @@ class PtuningTemplate(MixedTemplate):
         when template text was set, generate parameters needed in p-tuning input embedding phrase
         """
         super().on_text_set()
-        self.num_soft_token = sum([soft_id != 0 for soft_id in self.soft_token_ids])
+        self.num_soft_token = sum(soft_id != 0 for soft_id in self.soft_token_ids)
         self.generate_parameters()
 
     def generate_parameters(self) -> None:

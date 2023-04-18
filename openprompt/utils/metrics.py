@@ -3,17 +3,12 @@ from typing import *
 from openprompt.utils.logging import logger
 
 def f1(p, r):
-    if p == 0. or r == 0.:
-        return 0.
-    return 2*p*r/(p+r)
+    return 0. if p == 0. or r == 0. else 2*p*r/(p+r)
 
 def label_path(label, label_path_sep):
     label = label.strip(label_path_sep)
     label_path = label.split(label_path_sep)
-    label_set = []
-    for i in range(len(label_path)):
-        label_set.append(label_path_sep.join(label_path[:i+1]))
-    return label_set
+    return [label_path_sep.join(label_path[:i+1]) for i in range(len(label_path))]
 
 def loose_micro(labels, preds, id2label, label_path_sep):
     if id2label is None:
@@ -44,9 +39,9 @@ def loose_macro(labels, preds, id2label, label_path_sep):
     for label, pred in zip(labels, preds):
         label = set(label)
         pred = set(pred)
-        if len(pred) > 0:
+        if pred:
             p += len(label.intersection(pred))/len(pred)
-        if len(label) > 0:
+        if label:
             r += len(label.intersection(pred))/len(label)
     p /= len(labels)
     r /= len(labels)
@@ -81,7 +76,6 @@ def classification_metrics(preds: Sequence[int],
         score = precision_score(labels, preds)
     elif metric == "recall":
         score = recall_score(labels, preds)
-    # only hierarchical label loose metric is supported TODO naive multilabel ?
     elif metric == 'loose-micro-f1': 
         score = loose_micro(labels, preds, id2label=id2label, label_path_sep=label_path_sep)['f1']
     elif metric == 'loose-macro-f1':
@@ -95,7 +89,7 @@ def classification_metrics(preds: Sequence[int],
     elif metric == 'loose-macro-recall':
         score = loose_macro(labels, preds, id2label=id2label, label_path_sep=label_path_sep)['recall']
     else:
-        raise ValueError("'{}' is not a valid evaluation type".format(metric))
+        raise ValueError(f"'{metric}' is not a valid evaluation type")
     return score
 
 def generation_metric(hypos,
@@ -112,34 +106,32 @@ def generation_metric(hypos,
     Returns:
         score (float): evaluate score
     """
-    if metric == "sentence_bleu":
-        # a simple criterion to visualize the performance, not rigorous.
-        import nltk
-        try:
-            nltk_path = str(nltk.data.find("tokenizers/punkt"))
-            logger.info(f"using nltk from: {nltk_path}")
-        except LookupError:
-            nltk.download('punkt')
+    if metric != "sentence_bleu":
+        raise ValueError(f"'{metric}' is not a valid metric type.")
+    # a simple criterion to visualize the performance, not rigorous.
+    import nltk
+    try:
+        nltk_path = str(nltk.data.find("tokenizers/punkt"))
+        logger.info(f"using nltk from: {nltk_path}")
+    except LookupError:
+        nltk.download('punkt')
 
-        from nltk.translate.bleu_score import sentence_bleu
-        from nltk.tokenize import word_tokenize
-        from nltk.translate.bleu_score import SmoothingFunction
-        smoothie = SmoothingFunction().method4 # a function for smooth
-        scores = []
-        
-        for ref, hypo in zip(refs, hypos):
-            tokenized_rs = []
-            ref = ref.split("\n")
-            for r in ref:
-                tokenized_rs.append(word_tokenize(r))
-            hypo = word_tokenize(hypo)
-            try:
-                sc = sentence_bleu(tokenized_rs, hypo, smoothing_function=smoothie)
-            except ValueError: # TODO ZeroDivisionError
-                logger.warning("math domain error in bleu, set to 0.0. generated sentence: {}".format(hypo))
-                sc = 0.0
-            scores.append(sc)
-        score = sum(scores)/len(scores)
-        return score
-    else:
-        raise ValueError("'{}' is not a valid metric type.".format(metric))
+    from nltk.translate.bleu_score import sentence_bleu
+    from nltk.tokenize import word_tokenize
+    from nltk.translate.bleu_score import SmoothingFunction
+    smoothie = SmoothingFunction().method4 # a function for smooth
+    scores = []
+
+    for ref, hypo in zip(refs, hypos):
+        ref = ref.split("\n")
+        tokenized_rs = [word_tokenize(r) for r in ref]
+        hypo = word_tokenize(hypo)
+        try:
+            sc = sentence_bleu(tokenized_rs, hypo, smoothing_function=smoothie)
+        except ValueError: # TODO ZeroDivisionError
+            logger.warning(
+                f"math domain error in bleu, set to 0.0. generated sentence: {hypo}"
+            )
+            sc = 0.0
+        scores.append(sc)
+    return sum(scores)/len(scores)

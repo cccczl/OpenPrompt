@@ -29,7 +29,7 @@ master_doc = 'index'
 author = 'THUNLP, The OpenPrompt Team'
 
 project = 'OpenPrompt'
-copyright = '{}, {}, Licenced under the Apache License, Version 2.0'.format(datetime.datetime.now().year, author)
+copyright = f'{datetime.datetime.now().year}, {author}, Licenced under the Apache License, Version 2.0'
 
 version = "v1.0.0"
 release = "v1.0.0"

@@ -46,12 +46,12 @@ class SoftVerbalizer(Verbalizer):
         head_name = [n for n,c in model.named_children()][-1]
         logger.info(f"The LM head named {head_name} was retrieved.")
         self.head = copy.deepcopy(getattr(model, head_name))
-        max_loop = 5
         if not isinstance(self.head, torch.nn.Linear):
             module = self.head
             found = False
             last_layer_full_name = []
-            for i in range(max_loop):
+            max_loop = 5
+            for _ in range(max_loop):
                 last_layer_name = [n for n,c in module.named_children()][-1]
                 last_layer_full_name.append(last_layer_name)
                 parent_module = module
@@ -140,12 +140,12 @@ class SoftVerbalizer(Verbalizer):
             word = word[0]
             word_ids = self.tokenizer.encode(word, add_special_tokens=False)
             if len(word_ids) > 1:
-                logger.warning("Word {} is split into multiple tokens: {}. \
-                    If this is not what you expect, try using another word for this verbalizer" \
-                    .format(word, self.tokenizer.convert_ids_to_tokens(word_ids)))
+                logger.warning(
+                    f"Word {word} is split into multiple tokens: {self.tokenizer.convert_ids_to_tokens(word_ids)}. \\n                    If this is not what you expect, try using another word for this verbalizer"
+                )
             words_ids.append(word_ids)
 
-        max_len  = max([len(ids) for ids in words_ids])
+        max_len = max(len(ids) for ids in words_ids)
         words_ids_mask = [[1]*len(ids) + [0]*(max_len-len(ids)) for ids in words_ids]
         words_ids = [ids+[0]*(max_len-len(ids)) for ids in words_ids]
 
@@ -171,8 +171,7 @@ class SoftVerbalizer(Verbalizer):
     def process_hiddens(self, hiddens: torch.Tensor, **kwargs):
         r"""A whole framework to process the original logits over the vocabulary, which contains four steps:
         """
-        label_logits = self.head(hiddens)
-        return label_logits
+        return self.head(hiddens)
 
     def process_outputs(self, outputs: torch.Tensor, batch: Union[Dict, InputFeatures], **kwargs):
         return self.process_hiddens(outputs)
@@ -180,7 +179,9 @@ class SoftVerbalizer(Verbalizer):
     def gather_outputs(self, outputs: ModelOutput):
         if isinstance(outputs, Seq2SeqLMOutput):
             ret = outputs.decoder_hidden_states[-1]
-        elif isinstance(outputs, MaskedLMOutput) or isinstance(outputs, CausalLMOutputWithCrossAttentions):
+        elif isinstance(
+            outputs, (MaskedLMOutput, CausalLMOutputWithCrossAttentions)
+        ):
             ret = outputs.hidden_states[-1]
         else:
             try:

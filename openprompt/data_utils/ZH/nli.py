@@ -17,7 +17,7 @@ class CMNLI(CLSProcessor):
         path = os.path.join(data_dir, f"{split}.jsonl")
         examples = []
         with open(path, encoding='utf8') as f:
-            for line_i, line in enumerate(f):
+            for line in f:
                 # print(line_i)
                 example_json = json.loads(line)
                 example = InputExample(

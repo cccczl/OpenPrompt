@@ -5,8 +5,11 @@ from openprompt.data_utils.text_classification_dataset import AgnewsProcessor
 import torch
 from openprompt.data_utils.utils import InputExample
 
-dataset = {}
-dataset['train'] = AgnewsProcessor().get_train_examples("./datasets/TextClassification/agnews")
+dataset = {
+    'train': AgnewsProcessor().get_train_examples(
+        "./datasets/TextClassification/agnews"
+    )
+}
 dataset['test'] = AgnewsProcessor().get_test_examples("./datasets/TextClassification/agnews")
 from openprompt.plms import load_plm
 plm, tokenizer, model_config, WrapperClass = load_plm("roberta", "../../plm_cache/roberta-large")
@@ -58,7 +61,9 @@ print("the calibration logits is", cc_logits)
 # currently, only ManualVerbalizer and KnowledgeableVerbalizer support calibration.
 prompt_model.verbalizer.register_calibrate_logits(cc_logits)
 new_label_words_num = [len(prompt_model.verbalizer.label_words[i]) for i in range(4)]
-print("Original number of label words per class: {} \n After filtering, number of label words per class: {}".format(org_label_words_num, new_label_words_num))
+print(
+    f"Original number of label words per class: {org_label_words_num} \n After filtering, number of label words per class: {new_label_words_num}"
+)
 
 # zero-shot test
 test_dataloader = PromptDataLoader(dataset=dataset["test"], template=mytemplate, tokenizer=tokenizer,
@@ -75,5 +80,5 @@ for step, inputs in enumerate(pbar):
     labels = inputs['label']
     alllabels.extend(labels.cpu().tolist())
     allpreds.extend(torch.argmax(logits, dim=-1).cpu().tolist())
-acc = sum([int(i==j) for i,j in zip(allpreds, alllabels)])/len(allpreds)
+acc = sum(int(i==j) for i,j in zip(allpreds, alllabels)) / len(allpreds)
 print("test:", acc)  # roughly ~0.853 when using template 0

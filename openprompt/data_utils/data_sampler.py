@@ -70,15 +70,15 @@ class FewShotSampler(object):
 
         '''
         if valid_dataset is None:
-            if self.also_sample_dev:
-                return self._sample(train_dataset, seed, sample_twice=True)
-            else:
-                return self._sample(train_dataset, seed, sample_twice=False)
-        else:
-            train_dataset = self._sample(train_dataset, seed)
-            if self.also_sample_dev:
-                valid_dataset = self._sample(valid_dataset, seed, is_dev=True)
-            return train_dataset, valid_dataset
+            return (
+                self._sample(train_dataset, seed, sample_twice=True)
+                if self.also_sample_dev
+                else self._sample(train_dataset, seed, sample_twice=False)
+            )
+        train_dataset = self._sample(train_dataset, seed)
+        if self.also_sample_dev:
+            valid_dataset = self._sample(valid_dataset, seed, is_dev=True)
+        return train_dataset, valid_dataset
 
     def _sample(self,
                 data: Union[Dataset, List],
@@ -90,7 +90,7 @@ class FewShotSampler(object):
             self.rng = np.random.RandomState(seed)
         else:
             self.rng = np.random.RandomState()
-        indices = [i for i in range(len(data))]
+        indices = list(range(len(data)))
 
         num_examples_per_label = self.num_examples_per_label_dev if is_dev else self.num_examples_per_label
         num_examples_total = self.num_examples_total_dev if is_dev else self.num_examples_total
@@ -105,23 +105,22 @@ class FewShotSampler(object):
         if sample_twice:
             selected_set = set(selected_ids)
             remain_ids = [i for i in range(len(data)) if i not in selected_set]
-            if self.num_examples_per_label_dev is not None:
+            if self.num_examples_per_label_dev is None:
+                selected_ids_dev = self.sample_total(remain_ids, self.num_examples_total_dev)
+
+            else:
                 assert hasattr(data[0], 'label'), "sample by label requires the data has a 'label' attribute."
                 remain_labels = [x.label for idx, x in enumerate(data) if idx not in selected_set]
                 selected_ids_dev = self.sample_per_label(remain_ids, remain_labels, self.num_examples_per_label_dev)
-            else:
-                selected_ids_dev = self.sample_total(remain_ids, self.num_examples_total_dev)
-
             if isinstance(data, Dataset):
                 return Subset(data, selected_ids), Subset(data, selected_ids_dev)
             elif isinstance(data, List):
                 return [data[i] for i in selected_ids], [data[i] for i in selected_ids_dev]
 
-        else:
-            if isinstance(data, Dataset):
-                return Subset(data, selected_ids)
-            elif isinstance(data, List):
-                return [data[i] for i in selected_ids]
+        elif isinstance(data, Dataset):
+            return Subset(data, selected_ids)
+        elif isinstance(data, List):
+            return [data[i] for i in selected_ids]
 
 
     def sample_total(self, indices: List, num_examples_total):
@@ -138,7 +137,7 @@ class FewShotSampler(object):
         '''
         self.rng.shuffle(indices)
         selected_ids = indices[:num_examples_total]
-        logger.info("Selected examples (mixed) {}".format(selected_ids))
+        logger.info(f"Selected examples (mixed) {selected_ids}")
         return selected_ids
 
     def sample_per_label(self, indices: List, labels, num_examples_per_label):
@@ -163,10 +162,10 @@ class FewShotSampler(object):
             tmp = np.array(ids)
             self.rng.shuffle(tmp)
             if len(tmp) < num_examples_per_label:
-                logger.info("Not enough examples of label {} can be sampled".format(label))
+                logger.info(f"Not enough examples of label {label} can be sampled")
             selected_ids.extend(tmp[:num_examples_per_label].tolist())
         selected_ids = np.array(selected_ids)
         self.rng.shuffle(selected_ids)
         selected_ids = selected_ids.tolist()
-        logger.info("Selected examples {}".format(selected_ids))
+        logger.info(f"Selected examples {selected_ids}")
         return selected_ids

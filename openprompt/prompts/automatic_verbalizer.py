@@ -51,13 +51,13 @@ class AutomaticVerbalizer(Verbalizer):
         self.num_candidates = num_candidates
         self.label_word_num_per_class = label_word_num_per_class
         self.probs_buffer, self.labels_buffer = None, None
-        assert num_searches > 0, "You requires the verbalizer to perform {} searches. Invalid.".format(num_searches)
+        assert (
+            num_searches > 0
+        ), f"You requires the verbalizer to perform {num_searches} searches. Invalid."
         self.num_searches = num_searches
         self.search_id = 0
         self.accumulate_step = 0 # currently not used, to support not epoch-level optimize.
         self.accumulate = True # A flag to indicate whether to
-                               # accumulate examples for optimization.
-                               # set to False after finish optimization.
         self.score_fct = score_fct
         self.balance = balance
         self.init_using_split = init_using_split
@@ -85,29 +85,26 @@ class AutomaticVerbalizer(Verbalizer):
             self.accumulate_step+=1
             self.register_buffer(logits, kwargs['batch']['label'])
 
-        if hasattr(self, "label_words_ids"): # TODO the content in this "if" is same as super()
-            # project
-            label_words_logits = self.project(logits, **kwargs)  #Output: (batch_size, num_classes) or  (batch_size, num_classes, num_label_words_per_label)
-
-            # normalize
-            label_words_probs = self.normalize(label_words_logits)
-
-            # calibrate
-            if  hasattr(self, "_calibrate_logits") and self._calibrate_logits is not None:
-                label_words_probs = self.calibrate(label_words_probs=label_words_probs)
-
-            # convert to logits
-            label_words_logits = torch.log(label_words_probs+1e-15)
-
-            # aggregate
-            if label_words_logits.dim()>2:
-                label_logits = self.aggregate(label_words_logits)
-            else:
-                label_logits = label_words_logits
-            return label_logits
-
-        else:
+        if not hasattr(self, "label_words_ids"):
             return torch.randn((logits.size(0), self.num_classes), requires_grad=True).to(logits.device)
+        # project
+        label_words_logits = self.project(logits, **kwargs)  #Output: (batch_size, num_classes) or  (batch_size, num_classes, num_label_words_per_label)
+
+        # normalize
+        label_words_probs = self.normalize(label_words_logits)
+
+        # calibrate
+        if  hasattr(self, "_calibrate_logits") and self._calibrate_logits is not None:
+            label_words_probs = self.calibrate(label_words_probs=label_words_probs)
+
+        # convert to logits
+        label_words_logits = torch.log(label_words_probs+1e-15)
+
+        return (
+            self.aggregate(label_words_logits)
+            if label_words_logits.dim() > 2
+            else label_words_logits
+        )
 
     def project(self,
                 logits: torch.Tensor,
@@ -123,8 +120,7 @@ class AutomaticVerbalizer(Verbalizer):
         Returns:
             :obj:`torch.Tensor`: The projected logits of label words.
         """
-        label_words_logits = logits[:, self.label_words_ids]
-        return label_words_logits
+        return logits[:, self.label_words_ids]
 
 
     def optimize(self):
@@ -153,7 +149,7 @@ class AutomaticVerbalizer(Verbalizer):
 
     def _show_verbalizer(self):
         tokens = [self.tokenizer.convert_ids_to_tokens(i) for i in self.label_words_ids]
-        logger.info("Verbalizer is {}".format(tokens))
+        logger.info(f"Verbalizer is {tokens}")
 
 
     def _find_verbalizer(self, words_per_label: int = 1, num_candidates: int = 1000, balance: bool = True,
@@ -165,9 +161,13 @@ class AutomaticVerbalizer(Verbalizer):
         probs = self.probs_buffer
         labels = self.labels_buffer
         candidates = self._get_candidates(num_candidates=num_candidates, probs=probs, labels=labels)
-        label_words =  self._get_top_words(probs=probs, candidates=candidates, balance=balance, words_per_label=words_per_label,
-                                    score_fct=score_fct)
-        return label_words
+        return self._get_top_words(
+            probs=probs,
+            candidates=candidates,
+            balance=balance,
+            words_per_label=words_per_label,
+            score_fct=score_fct,
+        )
 
     def _get_candidates(self,
                         num_candidates: int,
@@ -175,7 +175,7 @@ class AutomaticVerbalizer(Verbalizer):
                         labels: torch.Tensor,
                         ) -> Dict[str, List[str]]:
         if num_candidates <= 0:
-            return [torch.arange(self.vocab_size) for label_id in range(self.num_classes)]
+            return [torch.arange(self.vocab_size) for _ in range(self.num_classes)]
 
         log_probs = torch.log(probs+1e-15)
         candidate_ids = []
@@ -205,8 +205,7 @@ class AutomaticVerbalizer(Verbalizer):
             sorted_ids  = torch.argsort(s, descending=True)[:words_per_label]
             selected_ids = candidates[label_id][sorted_ids]
             label_words_ids.append(selected_ids)
-        label_words_ids = torch.vstack(label_words_ids)
-        return label_words_ids
+        return torch.vstack(label_words_ids)
 
     def _log_likelihood_ratio(self, probs, label_mask, balance):
         if balance:

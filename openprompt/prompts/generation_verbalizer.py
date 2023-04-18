@@ -80,18 +80,17 @@ class GenerationVerbalizer(Verbalizer):
     def wrap_one_example(self, example: InputExample) -> List[Dict]:
         r"""Take an InputExample, and fill the tgt_text with label words
         """
-        if not isinstance(self.label_words[example.label], list):
-            label_word = [self.label_words[example.label]]
-        else:
-            label_word = self.label_words[example.label]
-
+        label_word = (
+            self.label_words[example.label]
+            if isinstance(self.label_words[example.label], list)
+            else [self.label_words[example.label]]
+        )
         if example.tgt_text is not None:
             logger.warning(f"The example already has tgt_text {example.tgt_text}, and will be filled with new label words, is this intended?")
 
-        if not self.is_rule:
-            instance_label_word =  label_word
-        else:
-            instance_label_word = [i(example) for i in label_word]  #(example)
+        instance_label_word = (
+            [i(example) for i in label_word] if self.is_rule else label_word
+        )
         if len(instance_label_word) == 1:
             example.tgt_text = instance_label_word[0]
         else:
@@ -123,23 +122,18 @@ class GenerationVerbalizer(Verbalizer):
             d = {"add_prefix_space": ' ' if (i > 0 and text[i-1] == ' ') else ''}
             while i < len(text) and text[i] == ' ':
                 d["add_prefix_space"] = ''
-                i = i + 1
+                i += 1
             if i == len(text): break
 
+            j = i + 1
             if text[i] != self.mixed_token_start:
-                j = i + 1
-                while j < len(text):
-                    if text[j] == self.mixed_token_start:
-                        break
+                while j < len(text) and text[j] != self.mixed_token_start:
                     j = j + 1
                 d["text"] = text[i:j].rstrip(' ')
                 i = j
 
             else:
-                j = i + 1
-                while j < len(text):
-                    if text[j] == self.mixed_token_end:
-                        break
+                while j < len(text) and text[j] != self.mixed_token_end:
                     j = j + 1
                 if j == len(text):
                     raise ValueError(f"mixed_token_start {self.mixed_token_start} at position {i} has no corresponding mixed_token_end {self.mixed_token_end}")
@@ -148,7 +142,7 @@ class GenerationVerbalizer(Verbalizer):
                     val = eval(dict_str)
                     if isinstance(val, set):
                         val = {k: None for k in val}
-                    d.update(val)
+                    d |= val
                 except:
                     import traceback
                     print(traceback.format_exc())

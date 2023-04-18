@@ -57,7 +57,7 @@ class RteProcessor(FewGLUEDataProcessor):
     def get_examples(self, data_dir: str, split: str, hypothesis_name: str = "hypothesis",
                          premise_name: str = "premise") -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         with open(path, encoding='utf8') as f:
             for choicex, line in enumerate(f):
                 example_json = json.loads(line)
@@ -68,7 +68,7 @@ class RteProcessor(FewGLUEDataProcessor):
                     except ValueError:
                         idx = choicex
                 label = self.get_label_id(example_json["label"])
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 text_a = example_json[premise_name]
                 text_b = example_json[hypothesis_name]
 
@@ -93,7 +93,7 @@ class WicProcessor(FewGLUEDataProcessor):
 
     def get_examples(self, data_dir: str, split: str) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
@@ -101,7 +101,7 @@ class WicProcessor(FewGLUEDataProcessor):
                 if isinstance(idx, str):
                     idx = int(idx)
                 label = self.get_label_id(example_json["label"])
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 text_a = example_json['sentence1']
                 text_b = example_json['sentence2']
                 meta = {'word': example_json['word']}
@@ -119,13 +119,13 @@ class WscProcessor(FewGLUEDataProcessor):
 
     def get_examples(self, data_dir: str, split: str) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
                 idx = example_json['idx']
                 label = self.get_label_id(example_json["label"])
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 text_a = example_json['text']
                 meta = {
                     'span1_text': example_json['target']['span1_text'],
@@ -156,13 +156,13 @@ class WscProcessor(FewGLUEDataProcessor):
                         if words_a[span2_index + offset] == span2_text:
                             span2_index += offset
 
-                    if words_a[span2_index] != span2_text and words_a[span2_index].startswith(span2_text):
-                        words_a = words_a[:span2_index] \
+                if words_a[span2_index] != span2_text and words_a[span2_index].startswith(span2_text):
+                    words_a = words_a[:span2_index] \
                                   + [words_a[span2_index][:len(span2_text)], words_a[span2_index][len(span2_text):]] \
                                   + words_a[span2_index + 1:]
 
                 assert words_a[span2_index] == span2_text, \
-                    f"Got '{words_a[span2_index]}' but expected '{span2_text}' at index {span2_index} for '{words_a}'"
+                        f"Got '{words_a[span2_index]}' but expected '{span2_text}' at index {span2_index} for '{words_a}'"
 
                 text_a = ' '.join(words_a)
                 meta['span1_index'], meta['span2_index'] = span1_index, span2_index
@@ -184,13 +184,13 @@ class BoolQProcessor(FewGLUEDataProcessor):
 
     def get_examples(self, data_dir: str, split: str) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
                 idx = example_json['idx']
                 label = self.get_label_id(example_json["label"])
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 text_a = example_json['passage']
                 text_b = example_json['question']
                 example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label)
@@ -208,13 +208,13 @@ class CopaProcessor(FewGLUEDataProcessor):
 
     def get_examples(self, data_dir: str, split: str) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
                 label = self.get_label_id(example_json["label"])
                 idx = example_json['idx']
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 text_a = example_json['premise']
                 meta = {
                     'choice1': example_json['choice1'],
@@ -224,7 +224,7 @@ class CopaProcessor(FewGLUEDataProcessor):
                 example = InputExample(guid=guid, text_a=text_a, label=label, meta=meta, idx=idx)
                 examples.append(example)
 
-        if split == 'train' or split == 'unlabeled':
+        if split in {'train', 'unlabeled'}:
             mirror_examples = []
             for ex in examples:
                 label = "1" if ex.label == "0" else "0"
@@ -233,7 +233,9 @@ class CopaProcessor(FewGLUEDataProcessor):
                     'choice2': ex.meta['choice1'],
                     'question': ex.meta['question']
                 }
-                mirror_example = InputExample(guid=ex.guid + 'm', text_a=ex.text_a, label=label, meta=meta)
+                mirror_example = InputExample(
+                    guid=f'{ex.guid}m', text_a=ex.text_a, label=label, meta=meta
+                )
                 mirror_examples.append(mirror_example)
             examples += mirror_examples
             logger.info(f"Added {len(mirror_examples)} mirror examples, total size is {len(examples)}...")
@@ -249,7 +251,7 @@ class MultiRcProcessor(FewGLUEDataProcessor):
 
     def get_examples(self, data_dir: str, split: str) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
         with open(path, encoding='utf8') as f:
             for line in f:
                 example_json = json.loads(line)
@@ -275,7 +277,7 @@ class MultiRcProcessor(FewGLUEDataProcessor):
                         example = InputExample(guid=guid, text_a=text, text_b=question, label=label, meta=meta, idx=idx)
                         examples.append(example)
 
-        question_indices = list(set(example.meta['question_idx'] for example in examples))
+        question_indices = list({example.meta['question_idx'] for example in examples})
         label_distribution = Counter(example.label for example in examples)
         logger.info(f"Returning {len(examples)} examples corresponding to {len(question_indices)} questions with label "
                     f"distribution {list(label_distribution.items())}")
@@ -292,7 +294,7 @@ class RecordProcessor(FewGLUEDataProcessor):
     @staticmethod
     def get_examples(path, split, seed=42, max_train_candidates_per_question: int = 10) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.jsonl".format(split))
+        path = os.path.join(data_dir, f"{split}.jsonl")
 
         entity_shuffler = random.Random(seed)
 
@@ -358,7 +360,7 @@ class RecordProcessor(FewGLUEDataProcessor):
                         example = InputExample(guid=guid, text_a=text, text_b=question, label="1", meta=meta)
                         examples.append(example)
 
-        question_indices = list(set(example.meta['question_idx'] for example in examples))
+        question_indices = list({example.meta['question_idx'] for example in examples})
         label_distribution = Counter(example.label for example in examples)
         logger.info(f"Returning {len(examples)} examples corresponding to {len(question_indices)} questions with label "
                     f"distribution {list(label_distribution.items())}")

@@ -15,11 +15,8 @@ def create_dataloader(dataset_origin,
                   batch_size=1,
                   batchify_fn=None,
                   trans_fn=None):
-    if trans_fn:
-        dataset = dataset_origin.map(trans_fn)
-    else:
-        dataset = dataset_origin
-    shuffle = True if mode == 'train' else False
+    dataset = dataset_origin.map(trans_fn) if trans_fn else dataset_origin
+    shuffle = mode == 'train'
     if mode == 'train':
         batch_sampler = paddle.io.DistributedBatchSampler(dataset,
                                                           batch_size=batch_size,
@@ -34,21 +31,21 @@ def create_dataloader(dataset_origin,
                                 return_list=True)
     
 batchify_fn = lambda samples, fn=Tuple(
-            Pad(axis=0),  # input_ids
-#             Stack(), # input_embeds
-            Pad(axis=0),  # attention_mask
-#             Pad(axis=0), # token_type_ids
-            Stack(), # label
-#             Stack(),  # decoder_input_ids
-#             Stack(),  # decoder_inputs_embeds
-#             Stack(),  # soft_token_ids
-#             Stack(),  # past_key_values
-            Pad(axis = 0),  # loss_ids
-#             Stack(), # guid
-#             Stack(), # tgt_text
-#             Stack(), # encoded_tgt_text
-#             Stack(), #input_ids_len
-        ): [data for data in fn(samples)]
+    Pad(axis=0),  # input_ids
+    #             Stack(), # input_embeds
+    Pad(axis=0),  # attention_mask
+    #             Pad(axis=0), # token_type_ids
+    Stack(),  # label
+    #             Stack(),  # decoder_input_ids
+    #             Stack(),  # decoder_inputs_embeds
+    #             Stack(),  # soft_token_ids
+    #             Stack(),  # past_key_values
+    Pad(axis=0),  # loss_ids
+    #             Stack(), # guid
+    #             Stack(), # tgt_text
+    #             Stack(), # encoded_tgt_text
+    #             Stack(), #input_ids_len
+): list(fn(samples))
 
 
 class ErniePromptDataLoader():
@@ -116,16 +113,15 @@ class ErniePromptDataLoader():
     def wrap(self):
         r"""A simple interface to pass the examples to prompt, and wrap the text with template.
         """
-        if isinstance(self.raw_dataset, List):
-            assert len(self.raw_dataset) > 0, 'The dataset to be wrapped is empty.'
-            # for idx, example in tqdm(enumerate(self.raw_dataset),desc='Wrapping'):
-            for idx, example in enumerate(self.raw_dataset):
-                if self.verbalizer is not None and hasattr(self.verbalizer, 'wrap_one_example'): # some verbalizer may also process the example.
-                    example = self.verbalizer.wrap_one_example(example)
-                wrapped_example = self.template.wrap_one_example(example)
-                self.wrapped_dataset.append(wrapped_example)
-        else:
+        if not isinstance(self.raw_dataset, List):
             raise NotImplementedError
+        assert len(self.raw_dataset) > 0, 'The dataset to be wrapped is empty.'
+        # for idx, example in tqdm(enumerate(self.raw_dataset),desc='Wrapping'):
+        for idx, example in enumerate(self.raw_dataset):
+            if self.verbalizer is not None and hasattr(self.verbalizer, 'wrap_one_example'): # some verbalizer may also process the example.
+                example = self.verbalizer.wrap_one_example(example)
+            wrapped_example = self.template.wrap_one_example(example)
+            self.wrapped_dataset.append(wrapped_example)
     
     def tokenize(self):
         for idx, wrapped_example in tqdm(enumerate(self.wrapped_dataset),desc='tokenizing'):

@@ -58,7 +58,7 @@ class WebNLGProcessor(DataProcessor):
 
     def get_examples(self, data_dir: str, split: str) -> List[InputExample]:
         examples = []
-        path = os.path.join(data_dir, "{}.json".format(split))
+        path = os.path.join(data_dir, f"{split}.json")
         with open(path) as f:
             lines_dict = json.load(f)
 
@@ -73,11 +73,11 @@ class WebNLGProcessor(DataProcessor):
 
             rela_lst = []
             temp_triples = ''
-            for j, tripleset in enumerate(triples):
+            for tripleset in triples:
                 subj, rela, obj = tripleset['subject'], tripleset['property'], tripleset['object']
                 rela_lst.append(rela)
                 temp_triples += ' | '
-                temp_triples += '{} : {} : {}'.format(subj, rela, obj)
+                temp_triples += f'{subj} : {rela} : {obj}'
 
             if split.lower() == "train":
                 for sent in sents:
@@ -88,23 +88,15 @@ class WebNLGProcessor(DataProcessor):
             else:
                 full_src_lst.append(temp_triples)
                 full_rela_lst.append(rela_lst)
-                temp = []
-                for sent in sents:
-                    if sent["comment"] == 'good':
-                        temp.append(sent["lex"])
+                temp = [sent["lex"] for sent in sents if sent["comment"] == 'good']
                 full_tgt_lst.append("\n".join(temp))
 
         assert len(full_rela_lst) == len(full_src_lst)
         assert len(full_rela_lst) == len(full_tgt_lst)
 
-        if split.lower() == "train":
-            for i, (src, tgt) in enumerate(zip(full_src_lst, full_tgt_lst)):
-                example = InputExample(guid=str(i), text_a=src, tgt_text=tgt)
-                examples.append(example)
-        else:
-            for i, (src, tgt) in enumerate(zip(full_src_lst, full_tgt_lst)):
-                example = InputExample(guid=str(i), text_a=src, tgt_text=tgt)
-                examples.append(example)
+        for i, (src, tgt) in enumerate(zip(full_src_lst, full_tgt_lst)):
+            example = InputExample(guid=str(i), text_a=src, tgt_text=tgt)
+            examples.append(example)
         return examples
 
 
@@ -154,7 +146,7 @@ class CSQAProcessor(DataProcessor):
         path = os.path.join(data_dir, self.split2file[split])
         i = 0
         with open(path) as f:
-            for line in f.readlines():
+            for line in f:
                 if line.strip():
                     data = json.loads(line)
                     context = data["question"]["stem"]

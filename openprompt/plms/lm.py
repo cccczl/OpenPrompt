@@ -44,9 +44,10 @@ class LMTokenizerWrapper(TokenizerWrapper):
             if isinstance(tgt_text, str):
                 tgt_text = [tgt_text]
 
-        if self.predict_eos:
-            if not wrapped_example[-1]['text'].endswith(self.tokenizer.eos_token):
-                wrapped_example.append({"text":self.tokenizer.eos_token, "shortenable_ids":0, "loss_ids":1})
+        if self.predict_eos and not wrapped_example[-1]['text'].endswith(
+            self.tokenizer.eos_token
+        ):
+            wrapped_example.append({"text":self.tokenizer.eos_token, "shortenable_ids":0, "loss_ids":1})
 
         encoder_inputs = defaultdict(list)
 
@@ -61,7 +62,7 @@ class LMTokenizerWrapper(TokenizerWrapper):
 
             if piece['text'] == self.template_mask_token:
                 if teacher_forcing:
-                    piece['text'] = " "+tgt_text[num_mask_token_used]+" "
+                    piece['text'] = f" {tgt_text[num_mask_token_used]} "
                 else:
                     encoder_inputs['loss_ids'][-1][-1] = 1
                     break
@@ -71,7 +72,7 @@ class LMTokenizerWrapper(TokenizerWrapper):
                 if to_replace is not None:
                     piece['text'] = to_replace
                 else:
-                    raise KeyError("This tokenizer doesn't specify {} token.".format(piece['text']))
+                    raise KeyError(f"This tokenizer doesn't specify {piece['text']} token.")
 
             if 'soft_token_ids' in piece and piece['soft_token_ids']!=0:
                 encode_text =  [0] # can be replace by any token, since these token will use their own embeddings

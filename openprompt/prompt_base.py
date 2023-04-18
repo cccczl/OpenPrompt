@@ -96,11 +96,7 @@ class Template(nn.Module):
                                  example: InputExample,
                                  text = None,
                                 ):
-        if text is None:
-            text = self.text.copy()
-        else:
-            text = text.copy()
-
+        text = self.text.copy() if text is None else text.copy()
         for i, d in enumerate(text):
             if not callable(d.get("post_processing")):
                 d["post_processing"] = eval(d.get("post_processing", 'lambda x:x'))
@@ -124,11 +120,7 @@ class Template(nn.Module):
         r"""check whether the template format is correct.
         TODO: add more
         """
-        mask_num = 0
-        for i, d in enumerate(self.text):
-            if 'mask' in d:
-                mask_num += 1
-
+        mask_num = sum('mask' in d for d in self.text)
         if mask_num==0:
             raise RuntimeError(f"'mask' position not found in the template: {self.text}. Please Check!")
 
@@ -142,20 +134,17 @@ class Template(nn.Module):
             d = {"add_prefix_space": ' ' if (i > 0 and text[i-1] == ' ') else ''}
             while i < len(text) and text[i] == ' ':
                 d["add_prefix_space"] = ' '
-                i = i + 1
+                i += 1
             if i == len(text): break
 
+            j = i + 1
             if text[i] != self.mixed_token_start:
-                j = i + 1
-                while j < len(text):
-                    if text[j] == self.mixed_token_start:
-                        break
+                while j < len(text) and text[j] != self.mixed_token_start:
                     j = j + 1
                 d["text"] = text[i:j].rstrip(' ')
                 i = j
 
             else:
-                j = i + 1
                 mixed_token_cnt = 1 # { {} {} } nested support
                 while j < len(text):
                     if text[j] == self.mixed_token_end:
@@ -171,7 +160,7 @@ class Template(nn.Module):
                     val = eval(dict_str)
                     if isinstance(val, set):
                         val = {k: None for k in val}
-                    d.update(val)
+                    d |= val
                 except:
                     import traceback
                     print(traceback.format_exc())
@@ -203,42 +192,41 @@ class Template(nn.Module):
 
         if self.text is None:
             raise ValueError("template text has not been initialized")
-        if isinstance(example, InputExample):
-            text = self.incorporate_text_example(example)
+        if not isinstance(example, InputExample):
+            raise TypeError("InputExample")
+        text = self.incorporate_text_example(example)
 
-            not_empty_keys = example.keys()
-            for placeholder_token in self.placeholder_mapping:
-                not_empty_keys.remove(self.placeholder_mapping[placeholder_token]) # placeholder has been processed, remove
-            not_empty_keys.remove('meta') # meta has been processed
+        not_empty_keys = example.keys()
+        for placeholder_token in self.placeholder_mapping:
+            not_empty_keys.remove(self.placeholder_mapping[placeholder_token]) # placeholder has been processed, remove
+        not_empty_keys.remove('meta') # meta has been processed
 
-            keys, values= ['text'], [text]
-            for inputflag_name in self.registered_inputflag_names:
-                keys.append(inputflag_name)
-                v = None
-                if hasattr(self, inputflag_name) and getattr(self, inputflag_name) is not None:
-                    v = getattr(self, inputflag_name)
-                elif hasattr(self, "get_default_"+inputflag_name):
-                    v = getattr(self, "get_default_"+inputflag_name)()
-                    setattr(self, inputflag_name, v) # cache
-                else:
-                    raise ValueError("""
+        keys, values= ['text'], [text]
+        for inputflag_name in self.registered_inputflag_names:
+            keys.append(inputflag_name)
+            v = None
+            if hasattr(self, inputflag_name) and getattr(self, inputflag_name) is not None:
+                v = getattr(self, inputflag_name)
+            elif hasattr(self, f"get_default_{inputflag_name}"):
+                v = getattr(self, f"get_default_{inputflag_name}")()
+                setattr(self, inputflag_name, v) # cache
+            else:
+                raise ValueError("""
                     Template's inputflag '{}' is registered but not initialize.
                     Try using template.{} = [...] to initialize
                     or create an method get_default_{}(self) in your template.
                     """.format(inputflag_name, inputflag_name, inputflag_name))
 
-                if len(v) != len(text):
-                    raise ValueError("Template: len({})={} doesn't match len(text)={}."\
-                        .format(inputflag_name, len(v), len(text)))
-                values.append(v)
-            wrapped_parts_to_tokenize = []
-            for piece in list(zip(*values)):
-                wrapped_parts_to_tokenize.append(dict(zip(keys, piece)))
-
-            wrapped_parts_not_tokenize = {key: getattr(example, key) for key in not_empty_keys}
-            return [wrapped_parts_to_tokenize, wrapped_parts_not_tokenize]
-        else:
-            raise TypeError("InputExample")
+            if len(v) != len(text):
+                raise ValueError(
+                    f"Template: len({inputflag_name})={len(v)} doesn't match len(text)={len(text)}."
+                )
+            values.append(v)
+        wrapped_parts_to_tokenize = [
+            dict(zip(keys, piece)) for piece in list(zip(*values))
+        ]
+        wrapped_parts_not_tokenize = {key: getattr(example, key) for key in not_empty_keys}
+        return [wrapped_parts_to_tokenize, wrapped_parts_not_tokenize]
 
     @abstractmethod
     def process_batch(self, batch):
@@ -331,16 +319,13 @@ class Template(nn.Module):
         _init_dict = {**convert_cfg_to_dict(config), **kwargs}
         init_dict = {key: _init_dict[key] for key in _init_dict if key in init_args}
         template = cls(**init_dict)
-        if hasattr(template, "from_file"):
-            if not hasattr(config, "file_path"):
-                pass
-            else:
-                if (not hasattr(config, "text") or config.text is None) and config.file_path is not None:
-                    if config.choice is None:
-                        config.choice = 0
-                    template.from_file(config.file_path, config.choice)
-                elif (hasattr(config, "text") and config.text is not None) and config.file_path is not None:
-                    raise RuntimeError("The text can't be both set from `text` and `file_path`.")
+        if hasattr(template, "from_file") and hasattr(config, "file_path"):
+            if (not hasattr(config, "text") or config.text is None) and config.file_path is not None:
+                if config.choice is None:
+                    config.choice = 0
+                template.from_file(config.file_path, config.choice)
+            elif (hasattr(config, "text") and config.text is not None) and config.file_path is not None:
+                raise RuntimeError("The text can't be both set from `text` and `file_path`.")
         return template
 
 
@@ -396,7 +381,7 @@ class Verbalizer(nn.Module):
         # else:
         #     logger.warning("Reset label words in on_label_words_set function. Is this intended?")
 
-    def _match_label_words_to_label_ids(self, label_words): # TODO newly add function after docs written # TODO rename this function
+    def _match_label_words_to_label_ids(self, label_words):    # TODO newly add function after docs written # TODO rename this function
         """
         sort label words dict of verbalizer to match the label order of the classes
         """
@@ -412,14 +397,9 @@ class Verbalizer(nn.Module):
                 label_words[c]
                 for c in self.classes
             ] # length: label_size of the whole task
-        elif isinstance(label_words, list) or isinstance(label_words, tuple):
-            pass
-            # logger.info("""
-            # Your given label words is a list, by default, the ith label word in the list will match class i of the dataset.
-            # Please make sure that they have the same order.
-            # Or you can pass label words as a dict, mapping from class names to label words.
-            # """)
-        else:
+        elif not isinstance(label_words, list) and not isinstance(
+            label_words, tuple
+        ):
             raise ValueError("Verbalizer label words must be list, tuple or dict")
         return label_words
 
@@ -563,7 +543,9 @@ class Verbalizer(nn.Module):
         elif self.multi_token_handler == "mean":
             label_words_logits = (label_words_logits*mask.unsqueeze(0)).sum(dim=-1)/(mask.unsqueeze(0).sum(dim=-1)+1e-15)
         else:
-            raise ValueError("multi_token_handler {} not configured".format(self.multi_token_handler))
+            raise ValueError(
+                f"multi_token_handler {self.multi_token_handler} not configured"
+            )
         return label_words_logits
 
     @classmethod
@@ -583,16 +565,13 @@ class Verbalizer(nn.Module):
         _init_dict = {**convert_cfg_to_dict(config), **kwargs} if config is not None else kwargs
         init_dict = {key: _init_dict[key] for key in _init_dict if key in init_args}
         verbalizer = cls(**init_dict)
-        if hasattr(verbalizer, "from_file"):
-            if not hasattr(config, "file_path"):
-                pass
-            else:
-                if (not hasattr(config, "label_words") or config.label_words is None) and config.file_path is not None:
-                    if config.choice is None:
-                        config.choice = 0
-                    verbalizer.from_file(config.file_path, config.choice)
-                elif (hasattr(config, "label_words") and config.label_words is not None) and config.file_path is not None:
-                    raise RuntimeError("The text can't be both set from `text` and `file_path`.")
+        if hasattr(verbalizer, "from_file") and hasattr(config, "file_path"):
+            if (not hasattr(config, "label_words") or config.label_words is None) and config.file_path is not None:
+                if config.choice is None:
+                    config.choice = 0
+                verbalizer.from_file(config.file_path, config.choice)
+            elif (hasattr(config, "label_words") and config.label_words is not None) and config.file_path is not None:
+                raise RuntimeError("The text can't be both set from `text` and `file_path`.")
         return verbalizer
 
     def from_file(self,
@@ -633,12 +612,13 @@ class Verbalizer(nn.Module):
                 if len(label_words_single_group) > 0: # if no empty line in the last
                     label_words_all.append(label_words_single_group)
                 if choice >= len(label_words_all):
-                    raise RuntimeError("choice {} exceed the number of verbalizers {}"
-                                .format(choice, len(label_words_all)))
+                    raise RuntimeError(
+                        f"choice {choice} exceed the number of verbalizers {len(label_words_all)}"
+                    )
 
                 label_words = label_words_all[choice]
                 label_words = [label_words_per_label.strip().split(",") \
-                            for label_words_per_label in label_words]
+                                for label_words_per_label in label_words]
 
         elif path.endswith(".jsonl") or path.endswith(".json"):
             with open(path, "r") as f:
@@ -646,8 +626,9 @@ class Verbalizer(nn.Module):
                 # if it is a file containing multiple verbalizers
                 if isinstance(label_words_all, list):
                     if choice >= len(label_words_all):
-                        raise RuntimeError("choice {} exceed the number of verbalizers {}"
-                                .format(choice, len(label_words_all)))
+                        raise RuntimeError(
+                            f"choice {choice} exceed the number of verbalizers {len(label_words_all)}"
+                        )
                     label_words = label_words_all[choice]
                 elif isinstance(label_words_all, dict):
                     label_words = label_words_all
