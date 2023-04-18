@@ -31,7 +31,7 @@ class SuperglueMultiRCProcessor(DataProcessor):
         self.labels = ["No", "Yes"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='multirc', cache_dir=data_dir, split=split)
@@ -44,7 +44,7 @@ class SuperglueMultiRCProcessor(DataProcessor):
         text_b = example['question']
         meta = {"answer": example["answer"]}
         label = int(example['label'])
-        guid = "p{}-q{}-a{}".format(example['idx']['paragraph'], example['idx']['question'], example['idx']['answer'])
+        guid = f"p{example['idx']['paragraph']}-q{example['idx']['question']}-a{example['idx']['answer']}"
         return InputExample(guid = guid, text_a = text_a, text_b = text_b, meta = meta, label=label)
 
 class SuperglueBoolQProcessor(DataProcessor):
@@ -53,7 +53,7 @@ class SuperglueBoolQProcessor(DataProcessor):
         self.labels = ["No", "Yes"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='boolq', cache_dir=data_dir, split=split)
@@ -65,7 +65,7 @@ class SuperglueBoolQProcessor(DataProcessor):
         text_a = example['passage']
         text_b = example['question']
         label = int(example['label'])
-        guid = "{}".format(example['idx'])
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, text_a = text_a, text_b = text_b, label=label)
 
 class SuperglueCBProcessor(DataProcessor):
@@ -74,7 +74,7 @@ class SuperglueCBProcessor(DataProcessor):
         self.labels = ["Entailment", "Not Entailment", "Neutral"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='cb', cache_dir=data_dir, split=split)
@@ -86,7 +86,7 @@ class SuperglueCBProcessor(DataProcessor):
         text_a = example['premise']
         text_b = example['hypothesis']
         label = int(example['label'])
-        guid = "{}".format(example['idx'])
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, text_a = text_a, text_b = text_b, label=label)
 
 
@@ -96,7 +96,7 @@ class SuperglueCOPAProcessor(DataProcessor):
         self.labels = ["No", "Yes"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='copa', cache_dir=data_dir, split=split)
@@ -110,12 +110,9 @@ class SuperglueCOPAProcessor(DataProcessor):
         premise= example['premise']
         question = example['question']
 
-        meta = {}
-        meta['choice1'] = choice1
-        meta['choice2'] = choice2
-        meta['question'] = question
+        meta = {'choice1': choice1, 'choice2': choice2, 'question': question}
         label = int(example['label'])
-        guid = "{}".format(example['idx'])
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, text_a = premise, meta=meta, label=label)
 
 class SuperglueRTEProcessor(DataProcessor):
@@ -124,7 +121,7 @@ class SuperglueRTEProcessor(DataProcessor):
         self.labels = ["Entailment", "Not Entailment"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='rte', cache_dir=data_dir, split=split)
@@ -136,7 +133,7 @@ class SuperglueRTEProcessor(DataProcessor):
         text_a = example['premise']
         text_b = example['hypothesis']
         label = int(example['label'])
-        guid = "{}".format(example['idx'])
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, text_a = text_a, text_b = text_b, label=label)
 
 class SuperglueWiCProcessor(DataProcessor):
@@ -145,7 +142,7 @@ class SuperglueWiCProcessor(DataProcessor):
         self.labels = ["Same", "Different"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='wic', cache_dir=data_dir, split=split)
@@ -154,12 +151,11 @@ class SuperglueWiCProcessor(DataProcessor):
         return list(map(self.transform, dataset))
 
     def transform(self, example):
-        meta = {}
         text_a = example["sentence1"]
         text_b = example["sentence2"]
-        meta['word'] = example['word']
+        meta = {'word': example['word']}
         label = int(example['label'])
-        guid = "{}".format(example['idx'])
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, text_a=text_a, text_b=text_b, meta=meta, label=label)
 
 class SuperglueWSCProcessor(DataProcessor):
@@ -168,7 +164,7 @@ class SuperglueWSCProcessor(DataProcessor):
         self.labels = ["Different", "Same"]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='wsc', cache_dir=data_dir, split=split)
@@ -184,11 +180,12 @@ class SuperglueWSCProcessor(DataProcessor):
             modified_text.insert(idx, "*")
         modified_text = " ".join(modified_text)
 
-        meta = {}
-        meta['span1_text'] = example['span1_text']
-        meta['span2_text'] = example['span2_text']
+        meta = {
+            'span1_text': example['span1_text'],
+            'span2_text': example['span2_text'],
+        }
         label = int(example['label'])
-        guid = "{}".format(example['idx'])
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, text_a=modified_text, meta=meta, label=label)
 
 
@@ -198,7 +195,7 @@ class SuperglueRecordProcessor(DataProcessor):
         self.labels = [None]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "validation"
         try:
             dataset = load_dataset(path=HUGGING_FACE_SCRIPTS, name='record', cache_dir=data_dir, split=split)
@@ -207,15 +204,11 @@ class SuperglueRecordProcessor(DataProcessor):
         return list(map(self.transform, dataset))
 
     def transform(self, example):
-        meta = {}
-        meta['passage'] = example["passage"].replace("\n", " ")
+        meta = {'passage': example["passage"].replace("\n", " ")}
         meta['query'] = example["query"]
         meta['entities'] = ", ".join(example['entities'])
-        if len(example['answers'])>0:
-            meta['answers'] = example['answers'][0]
-        else:
-            meta['answers'] = ''
-        guid = "{}".format(example['idx'])
+        meta['answers'] = example['answers'][0] if len(example['answers'])>0 else ''
+        guid = f"{example['idx']}"
         return InputExample(guid = guid, meta=meta, label=0)
 
 
@@ -236,7 +229,7 @@ class YahooAnswersTopicsProcessor(DataProcessor):
                     ]
 
     def get_examples(self, data_dir, split):
-        if split == "valid" or split == "dev":
+        if split in ["valid", "dev"]:
             split = "train"# "validation"
         try:
             dataset = load_dataset("yahoo_answers_topics",split=split) # If you have network issues, we use the manually downloaded datasets.
@@ -250,7 +243,7 @@ class YahooAnswersTopicsProcessor(DataProcessor):
         text_a = example["question_title"]
         text_b = example["question_content"]
         label = int(example['topic'])
-        guid = "{}".format(example["id"])
+        guid = f'{example["id"]}'
         return InputExample(guid = guid, text_a=text_a, text_b=text_b, label=label)
 
 

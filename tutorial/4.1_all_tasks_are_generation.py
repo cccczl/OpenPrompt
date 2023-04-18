@@ -94,14 +94,13 @@ if args.dataset == "boolq":
     max_seq_l = 480 # this should be specified according to the running GPU's capacity
     if args.tune_plm: # tune the entire plm will use more gpu-memories, thus we should use a smaller batch_size.
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True # if multiple gpus are available, one can use model_parallelize
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "multirc":
     Processor = PROCESSORS["super_glue.multirc"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -114,14 +113,13 @@ elif args.dataset == "multirc":
     max_seq_l = 480 # may be a bit less, but to keep a smaller training overhead, we use 480
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "rte":
     Processor = PROCESSORS["super_glue.rte"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -134,14 +132,13 @@ elif args.dataset == "rte":
     dataset_decoder_max_length = 10
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 2
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "cb":
     Processor = PROCESSORS["super_glue.cb"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -154,14 +151,13 @@ elif args.dataset == "cb":
     dataset_decoder_max_length = 10
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "wic":
     Processor = PROCESSORS["super_glue.wic"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -174,14 +170,13 @@ elif args.dataset == "wic":
     dataset_decoder_max_length = 10
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "copa":
     Processor = PROCESSORS["super_glue.copa"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -194,14 +189,13 @@ elif args.dataset == "copa":
     dataset_decoder_max_length = 50
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "wsc":
     Processor = PROCESSORS["super_glue.wsc"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -214,14 +208,13 @@ elif args.dataset == "wsc":
     dataset_decoder_max_length = 10
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 elif args.dataset == "record":
     Processor = PROCESSORS["super_glue.record"]
     dataset['train'] = Processor().get_train_examples(args.data_dir)
@@ -234,14 +227,13 @@ elif args.dataset == "record":
     dataset_decoder_max_length = 20
     if args.tune_plm:
         batchsize_t = 4
-        batchsize_e = 4
         gradient_accumulation_steps = 8
         model_parallelize = True
     else:
         batchsize_t = 8
-        batchsize_e = 4
         gradient_accumulation_steps = 4
         model_parallelize = False
+    batchsize_e = 4
 else:
     raise NotImplementedError
 
@@ -281,7 +273,10 @@ test_dataloader = PromptDataLoader(dataset=dataset["test"], template=mytemplate,
     batch_size=batchsize_e,shuffle=False, teacher_forcing=False, predict_eos_token=False,
     truncate_method="tail")
 
-print("truncate rate: {}".format(test_dataloader.tokenizer_wrapper.truncate_rate), flush=True)
+print(
+    f"truncate rate: {test_dataloader.tokenizer_wrapper.truncate_rate}",
+    flush=True,
+)
 
 
 generation_arguments = {
@@ -303,8 +298,7 @@ def evaluate(prompt_model, dataloader):
     ground_truths = [ground_truth.strip() for ground_truth in ground_truths]
     # shown one example
     print(f"predictions {predictions[0]}, ground_truths {ground_truths[0]}")
-    score =  crossfit_evaluate(predictions, ground_truths, metric="ACC")
-    return score
+    return crossfit_evaluate(predictions, ground_truths, metric="ACC")
 
 
 from transformers import  AdamW, get_linear_schedule_with_warmup,get_constant_schedule_with_warmup  # use AdamW is a standard practice for transformer
@@ -317,8 +311,22 @@ tot_step = args.max_steps
 if args.tune_plm: # normally we freeze the model when using soft_template. However, we keep the option to tune plm
     no_decay = ['bias', 'LayerNorm.weight'] # it's always good practice to set no decay to biase and LayerNorm parameters
     optimizer_grouped_parameters1 = [
-        {'params': [p for n, p in prompt_model.plm.named_parameters() if (not any(nd in n for nd in no_decay))], 'weight_decay': 0.01},
-        {'params': [p for n, p in prompt_model.plm.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        {
+            'params': [
+                p
+                for n, p in prompt_model.plm.named_parameters()
+                if all(nd not in n for nd in no_decay)
+            ],
+            'weight_decay': 0.01,
+        },
+        {
+            'params': [
+                p
+                for n, p in prompt_model.plm.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
+            'weight_decay': 0.0,
+        },
     ]
     optimizer1 = AdamW(optimizer_grouped_parameters1, lr=3e-5)
     scheduler1 = get_linear_schedule_with_warmup(
@@ -398,7 +406,10 @@ for epoch in range(1000000):
                 best_val_acc = val_acc
 
             acc_traces.append(val_acc)
-            print("Glb_step {}, val_acc {}, average time {}".format(glb_step, val_acc, tot_train_time/actual_step ), flush=True)
+            print(
+                f"Glb_step {glb_step}, val_acc {val_acc}, average time {tot_train_time / actual_step}",
+                flush=True,
+            )
             prompt_model.train()
 
         if glb_step > args.max_steps:

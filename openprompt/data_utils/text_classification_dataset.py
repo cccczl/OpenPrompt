@@ -34,7 +34,7 @@ class MnliProcessor(DataProcessor):
         self.labels = ["contradiction", "entailment", "neutral"]
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "{}.csv".format(split))
+        path = os.path.join(data_dir, f"{split}.csv")
         examples = []
         with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=',')
@@ -85,7 +85,7 @@ class AgnewsProcessor(DataProcessor):
         self.labels = ["World", "Sports", "Business", "Tech"]
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "{}.csv".format(split))
+        path = os.path.join(data_dir, f"{split}.csv")
         examples = []
         with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=',')
@@ -128,13 +128,13 @@ class DBpediaProcessor(DataProcessor):
 
     def get_examples(self, data_dir, split):
         examples = []
-        label_file  = open(os.path.join(data_dir,"{}_labels.txt".format(split)),'r')
+        label_file = open(os.path.join(data_dir, f"{split}_labels.txt"), 'r')
         labels  = [int(x.strip()) for x in label_file.readlines()]
-        with open(os.path.join(data_dir,'{}.txt'.format(split)),'r') as fin:
+        with open(os.path.join(data_dir, f'{split}.txt'), 'r') as fin:
             for idx, line in enumerate(fin):
                 splited = line.strip().split(". ")
                 text_a, text_b = splited[0], splited[1:]
-                text_a = text_a+"."
+                text_a = f"{text_a}."
                 text_b = ". ".join(text_b)
                 example = InputExample(guid=str(idx), text_a=text_a, text_b=text_b, label=int(labels[idx]))
                 examples.append(example)
@@ -172,9 +172,9 @@ class ImdbProcessor(DataProcessor):
 
     def get_examples(self, data_dir, split):
         examples = []
-        label_file = open(os.path.join(data_dir, "{}_labels.txt".format(split)), 'r')
+        label_file = open(os.path.join(data_dir, f"{split}_labels.txt"), 'r')
         labels = [int(x.strip()) for x in label_file.readlines()]
-        with open(os.path.join(data_dir, '{}.txt'.format(split)),'r') as fin:
+        with open(os.path.join(data_dir, f'{split}.txt'), 'r') as fin:
             for idx, line in enumerate(fin):
                 text_a = line.strip()
                 example = InputExample(guid=str(idx), text_a=text_a, label=int(labels[idx]))
@@ -184,9 +184,8 @@ class ImdbProcessor(DataProcessor):
 
     @staticmethod
     def get_test_labels_only(data_dir, dirname):
-        label_file  = open(os.path.join(data_dir,dirname,"{}_labels.txt".format('test')),'r')
-        labels  = [int(x.strip()) for x in label_file.readlines()]
-        return labels
+        label_file = open(os.path.join(data_dir, dirname, 'test_labels.txt'), 'r')
+        return [int(x.strip()) for x in label_file.readlines()]
 
 
 # class AmazonProcessor(DataProcessor):
@@ -240,9 +239,9 @@ class AmazonProcessor(DataProcessor):
 
     def get_examples(self, data_dir, split):
         examples = []
-        label_file = open(os.path.join(data_dir, "{}_labels.txt".format(split)), 'r')
+        label_file = open(os.path.join(data_dir, f"{split}_labels.txt"), 'r')
         labels = [int(x.strip()) for x in label_file.readlines()]
-        with open(os.path.join(data_dir,'{}.txt'.format(split)),'r') as fin:
+        with open(os.path.join(data_dir, f'{split}.txt'), 'r') as fin:
             for idx, line in enumerate(fin):
                 text_a = line.strip()
                 example = InputExample(guid=str(idx), text_a=text_a, label=int(labels[idx]))
@@ -269,7 +268,7 @@ class YahooProcessor(DataProcessor):
                         ,"Family & Relationships", "Politics & Government"]
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "{}.csv".format(split))
+        path = os.path.join(data_dir, f"{split}.csv")
         examples = []
         with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=',')
@@ -345,7 +344,7 @@ class SST2Processor(DataProcessor):
                 linelist = line.strip().split('\t')
                 text_a = linelist[0]
                 label = linelist[1]
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 example = InputExample(guid=guid, text_a=text_a, label=self.get_label_id(label))
                 examples.append(example)
         return examples

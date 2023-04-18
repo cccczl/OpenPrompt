@@ -86,8 +86,7 @@ def load_local_dataset(path="../CCPM/", split="train"):
         data.append(InputExample(meta=result, label=int(result['answer'])))
     return data
 
-dataset = {}
-dataset['train'] = load_local_dataset(split="train")
+dataset = {'train': load_local_dataset(split="train")}
 dataset['val'] = load_local_dataset(split="valid")
 
 
@@ -115,7 +114,10 @@ if use_cuda:
     prompt_model=  prompt_model.cuda()
 
 
-print("truncate rate: {}".format(train_dataloader.tokenizer_wrapper.truncate_rate), flush=True)
+print(
+    f"truncate rate: {train_dataloader.tokenizer_wrapper.truncate_rate}",
+    flush=True,
+)
 
 
 generation_arguments = {
@@ -137,8 +139,10 @@ def evaluate(prompt_model, dataloader):
     ground_truths = [ground_truth.strip() for ground_truth in ground_truths]
     # shown one example
     print(f"predictions {predictions[0]}, ground_truths {ground_truths[0]}")
-    score = sum([prediction[:len(ground_truth)]==ground_truth for prediction, ground_truth in zip(predictions, ground_truths)])/len(ground_truths)
-    return score
+    return sum(
+        prediction[: len(ground_truth)] == ground_truth
+        for prediction, ground_truth in zip(predictions, ground_truths)
+    ) / len(ground_truths)
 
 
 from transformers import  AdamW, get_linear_schedule_with_warmup,get_constant_schedule_with_warmup  # use AdamW is a standard practice for transformer
@@ -148,11 +152,24 @@ loss_func = torch.nn.CrossEntropyLoss()
 tot_step = args.max_steps
 
 
- # normally we freeze the model when using soft_template. However, we keep the option to tune plm
 no_decay = ['bias', 'LayerNorm.weight'] # it's always good practice to set no decay to biase and LayerNorm parameters
 optimizer_grouped_parameters1 = [
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if (not any(nd in n for nd in no_decay))], 'weight_decay': 0.01},
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if all(nd not in n for nd in no_decay)
+        ],
+        'weight_decay': 0.01,
+    },
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if any(nd in n for nd in no_decay)
+        ],
+        'weight_decay': 0.0,
+    },
 ]
 optimizer1 = AdamW(optimizer_grouped_parameters1, lr=args.lr)
 scheduler1 = get_linear_schedule_with_warmup(
@@ -209,7 +226,10 @@ for epoch in range(1000000):
                 best_val_acc = val_acc
 
             acc_traces.append(val_acc)
-            print("Glb_step {}, val_acc {}, average time {}".format(glb_step, val_acc, tot_train_time/actual_step ), flush=True)
+            print(
+                f"Glb_step {glb_step}, val_acc {val_acc}, average time {tot_train_time / actual_step}",
+                flush=True,
+            )
             prompt_model.train()
 
         if glb_step > args.max_steps:

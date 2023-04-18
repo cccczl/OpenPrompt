@@ -76,8 +76,7 @@ class erniePromptModel(paddle.nn.Layer):
         r"""Will be used in generation
         """
         batch = self.template.process_batch(batch)
-        input_batch = {key: batch[key] for key in batch if key in self.forward_keys}
-        return input_batch
+        return {key: batch[key] for key in batch if key in self.forward_keys}
 
 class ErniePromptforClassification(paddle.nn.Layer):
     def __init__(self,
@@ -146,8 +145,7 @@ class ErniePromptforClassification(paddle.nn.Layer):
             outputs_at_mask = [self.extract_at_mask(output, batch) for output in outputs]
         else:
             outputs_at_mask = self.extract_at_mask(outputs, batch)
-        label_words_logits = self.verbalizer.process_outputs(outputs_at_mask, batch=batch)
-        return label_words_logits
+        return self.verbalizer.process_outputs(outputs_at_mask, batch=batch)
 
     def predict(self):
         pass
@@ -155,8 +153,7 @@ class ErniePromptforClassification(paddle.nn.Layer):
     def forward_without_verbalize(self, batch):
         outputs = self.prompt_model(batch)
         outputs = self.verbalizer.gather_outputs(outputs)
-        outputs_at_mask = self.extract_at_mask(outputs, batch)
-        return outputs_at_mask
+        return self.extract_at_mask(outputs, batch)
 
     @property
     def tokenizer(self):

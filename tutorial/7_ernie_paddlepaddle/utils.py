@@ -52,12 +52,9 @@ def round_list(l: List[float], max_sum:int):
         i = ceil(i)
         if s <= max_sum:
             s += i
-            if s <= max_sum:
-                l[idx] = i
-            else:
-                l[idx] = i - (s - max_sum)
+            l[idx] = i if s <= max_sum else i - (s - max_sum)
         else:
-            l[idx] = int(0)
+            l[idx] = 0
     assert sum(l) == max_sum
 
 
@@ -116,7 +113,7 @@ class TokenizerWrapper:
             _special_tokens_map = {}
             for attrname in self.__dict__.keys():
                 if attrname.endswith('_token_map'):
-                    _special_tokens_map.update(getattr(self, attrname))
+                    _special_tokens_map |= getattr(self, attrname)
         return  _special_tokens_map
 
     def tokenize_with_mask(self,
@@ -229,7 +226,7 @@ class TokenizerWrapper:
         return encoder_inputs
 
     def truncate(self, encoder_inputs):
-        total_tokens = sum([len(part) for part in encoder_inputs['input_ids']])
+        total_tokens = sum(len(part) for part in encoder_inputs['input_ids'])
         num_specials = self.num_special_tokens_to_add
         num_tokens_to_truncate = total_tokens - self.max_seq_length + num_specials
         self.total_passed_sentences+=1

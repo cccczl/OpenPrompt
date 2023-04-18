@@ -68,7 +68,7 @@ class FewNERDProcessor(DataProcessor):
         ]
 
     def get_examples(self, data_dir, split):
-        path = os.path.join(data_dir, "supervised/{}.txt".format(split))
+        path = os.path.join(data_dir, f"supervised/{split}.txt")
         with open(path, encoding='utf8') as f:
             data = FewNERDProcessor.load_data(f)
 
@@ -106,10 +106,10 @@ class FewNERDProcessor(DataProcessor):
                 tag = pair[-1]
                 if tag != 'O':
                     if len(ys) == 0 or tag != ys[-1][2:]:
-                        tag = 'B-' + tag
+                        tag = f'B-{tag}'
                         spans.append([len(ys), len(ys)])
                     else:
-                        tag = 'I-' + tag
+                        tag = f'I-{tag}'
                         spans[-1][-1] = len(ys)
                 ys.append(tag)
         return data

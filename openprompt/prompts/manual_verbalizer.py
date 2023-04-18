@@ -86,8 +86,10 @@ class ManualVerbalizer(Verbalizer):
                 ids_per_label.append(ids)
             all_ids.append(ids_per_label)
 
-        max_len  = max([max([len(ids) for ids in ids_per_label]) for ids_per_label in all_ids])
-        max_num_label_words = max([len(ids_per_label) for ids_per_label in all_ids])
+        max_len = max(
+            max(len(ids) for ids in ids_per_label) for ids_per_label in all_ids
+        )
+        max_num_label_words = max(len(ids_per_label) for ids_per_label in all_ids)
         words_ids_mask = torch.zeros(max_num_label_words, max_len)
         words_ids_mask = [[[1]*len(ids) + [0]*(max_len-len(ids)) for ids in ids_per_label]
                              + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
@@ -155,9 +157,7 @@ class ManualVerbalizer(Verbalizer):
             # convert to logits
             label_words_logits = torch.log(label_words_probs+1e-15)
 
-        # aggregate
-        label_logits = self.aggregate(label_words_logits)
-        return label_logits
+        return self.aggregate(label_words_logits)
 
     def normalize(self, logits: torch.Tensor) -> torch.Tensor:
         """

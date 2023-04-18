@@ -18,8 +18,11 @@ args = parser.parse_args()
 print(args)
 
 from openprompt.data_utils.conditional_generation_dataset import WebNLGProcessor
-dataset = {}
-dataset['train'] = WebNLGProcessor().get_train_examples("./datasets/CondGen/webnlg_2017/")
+dataset = {
+    'train': WebNLGProcessor().get_train_examples(
+        "./datasets/CondGen/webnlg_2017/"
+    )
+}
 dataset['validation'] = WebNLGProcessor().get_dev_examples("./datasets/CondGen/webnlg_2017/")
 dataset['test'] = WebNLGProcessor().get_test_examples("./datasets/CondGen/webnlg_2017/")
 
@@ -76,14 +79,22 @@ from transformers import AdamW
 
 no_decay = ["bias", "LayerNorm.weight"]
 optimizer_grouped_parameters = [
-{
-    "params": [p for n, p in mytemplate.named_parameters() if (not any(nd in n for nd in no_decay)) and p.requires_grad],
-    "weight_decay": 0.0,
-},
-{
-    "params": [p for n, p in mytemplate.named_parameters() if any(nd in n for nd in no_decay) and p.requires_grad],
-    "weight_decay": 0.0,
-},
+    {
+        "params": [
+            p
+            for n, p in mytemplate.named_parameters()
+            if all(nd not in n for nd in no_decay) and p.requires_grad
+        ],
+        "weight_decay": 0.0,
+    },
+    {
+        "params": [
+            p
+            for n, p in mytemplate.named_parameters()
+            if any(nd in n for nd in no_decay) and p.requires_grad
+        ],
+        "weight_decay": 0.0,
+    },
 ]
 
 
@@ -146,7 +157,10 @@ for epoch in range(5):
         scheduler.step()
         optimizer.zero_grad()
         if global_step %500 ==0:
-            print("Epoch {}, global_step {} average loss: {} lr: {}".format(epoch, global_step, (tot_loss-log_loss)/500, scheduler.get_last_lr()[0]), flush=True)
+            print(
+                f"Epoch {epoch}, global_step {global_step} average loss: {(tot_loss - log_loss) / 500} lr: {scheduler.get_last_lr()[0]}",
+                flush=True,
+            )
             log_loss = tot_loss
 
 generated_sentence = evaluate(prompt_model, test_dataloader)

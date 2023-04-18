@@ -63,9 +63,9 @@ class PTRVerbalizer(Verbalizer):
             if len(words) != self.num_masks:
                 raise ValueError("number of mask tokens for different classes are not consistent")
         self.sub_labels = [
-            list(set([words[i] for words in self.label_words]))
+            list({words[i] for words in self.label_words})
             for i in range(self.num_masks)
-        ] # [num_masks, label_size of the corresponding mask]
+        ]
 
         self.verbalizers = nn.ModuleList([
             One2oneVerbalizer(tokenizer=self.tokenizer, label_words=labels, post_log_softmax = False)

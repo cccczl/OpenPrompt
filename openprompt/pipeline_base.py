@@ -100,11 +100,7 @@ class PromptDataLoader(object):
         self.wrap()
         self.tokenize()
 
-        if self.shuffle:
-            sampler = RandomSampler(self.tensor_dataset)
-        else:
-            sampler = None
-
+        sampler = RandomSampler(self.tensor_dataset) if self.shuffle else None
         self.dataloader = DataLoader(
             self.tensor_dataset,
             batch_size = self.batch_size,
@@ -117,16 +113,15 @@ class PromptDataLoader(object):
     def wrap(self):
         r"""A simple interface to pass the examples to prompt, and wrap the text with template.
         """
-        if isinstance(self.raw_dataset, Dataset) or isinstance(self.raw_dataset, List):
-            assert len(self.raw_dataset) > 0, 'The dataset to be wrapped is empty.'
-            # for idx, example in tqdm(enumerate(self.raw_dataset),desc='Wrapping'):
-            for idx, example in enumerate(self.raw_dataset):
-                if self.verbalizer is not None and hasattr(self.verbalizer, 'wrap_one_example'): # some verbalizer may also process the example.
-                    example = self.verbalizer.wrap_one_example(example)
-                wrapped_example = self.template.wrap_one_example(example)
-                self.wrapped_dataset.append(wrapped_example)
-        else:
+        if not isinstance(self.raw_dataset, (Dataset, List)):
             raise NotImplementedError
+        assert len(self.raw_dataset) > 0, 'The dataset to be wrapped is empty.'
+        # for idx, example in tqdm(enumerate(self.raw_dataset),desc='Wrapping'):
+        for idx, example in enumerate(self.raw_dataset):
+            if self.verbalizer is not None and hasattr(self.verbalizer, 'wrap_one_example'): # some verbalizer may also process the example.
+                example = self.verbalizer.wrap_one_example(example)
+            wrapped_example = self.template.wrap_one_example(example)
+            self.wrapped_dataset.append(wrapped_example)
 
     def tokenize(self) -> None:
         r"""Pass the wrapped text into a prompt-specialized tokenizer,
@@ -217,8 +212,7 @@ class PromptModel(nn.Module):
         r"""Will be used in generation
         """
         batch = self.template.process_batch(batch)
-        input_batch = {key: batch[key] for key in batch if key in self.forward_keys}
-        return input_batch
+        return {key: batch[key] for key in batch if key in self.forward_keys}
 
 class PromptForClassification(nn.Module):
     r'''``PromptModel`` with a classification head on top. The classification head will map
@@ -298,8 +292,7 @@ class PromptForClassification(nn.Module):
             outputs_at_mask = [self.extract_at_mask(output, batch) for output in outputs]
         else:
             outputs_at_mask = self.extract_at_mask(outputs, batch)
-        label_words_logits = self.verbalizer.process_outputs(outputs_at_mask, batch=batch)
-        return label_words_logits
+        return self.verbalizer.process_outputs(outputs_at_mask, batch=batch)
 
     def predict(self):
         pass
@@ -307,8 +300,7 @@ class PromptForClassification(nn.Module):
     def forward_without_verbalize(self, batch: Union[Dict, InputFeatures]) -> torch.Tensor:
         outputs = self.prompt_model(batch)
         outputs = self.verbalizer.gather_outputs(outputs)
-        outputs_at_mask = self.extract_at_mask(outputs, batch)
-        return outputs_at_mask
+        return self.extract_at_mask(outputs, batch)
 
     @property
     def tokenizer(self):

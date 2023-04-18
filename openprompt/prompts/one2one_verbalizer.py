@@ -61,7 +61,9 @@ class One2oneVerbalizer(Verbalizer):
         """
         new_label_words = []
         if isinstance(label_words[0], list):
-            assert max([len(w) for w in label_words]) ==  1, "Providing multiple label words, you should use other verbalizers instead."
+            assert (
+                max(len(w) for w in label_words) == 1
+            ), "Providing multiple label words, you should use other verbalizers instead."
             label_words = [w[0] for w in label_words]
 
         for word in label_words:
@@ -80,13 +82,13 @@ class One2oneVerbalizer(Verbalizer):
         for word in self.label_words:
             word_ids = self.tokenizer.encode(word, add_special_tokens=False)
             if len(word_ids) > 1:
-                logger.warning("Word {} is split into multiple tokens: {}. \
-                    If this is not what you expect, try using another word for this verbalizer" \
-                    .format(word, self.tokenizer.convert_ids_to_tokens(word_ids)))
+                logger.warning(
+                    f"Word {word} is split into multiple tokens: {self.tokenizer.convert_ids_to_tokens(word_ids)}. \\n                    If this is not what you expect, try using another word for this verbalizer"
+                )
             words_ids.append(word_ids)
 
 
-        max_len  = max([len(ids) for ids in words_ids])
+        max_len = max(len(ids) for ids in words_ids)
         words_ids_mask = [[1]*len(ids) + [0]*(max_len-len(ids)) for ids in words_ids]
         words_ids = [ids+[0]*(max_len-len(ids)) for ids in words_ids]
 
@@ -109,8 +111,7 @@ class One2oneVerbalizer(Verbalizer):
             :obj:`torch.Tensor`: The normalized logits of label words
         """
         label_words_logits = logits[:, self.label_words_ids]
-        label_words_logits = self.handle_multi_token(label_words_logits, self.label_words_mask)
-        return label_words_logits
+        return self.handle_multi_token(label_words_logits, self.label_words_mask)
 
     def process_logits(self, logits: torch.Tensor, **kwargs):
         r"""A whole framework to process the original logits over the vocabulary, which contains four steps:

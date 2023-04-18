@@ -29,7 +29,7 @@ from accelerate.utils import set_seed
 
 
 def format_metrics(metrics, split, prefix=""):
-    log = f"[{split}]" + prefix
+    log = f"[{split}]{prefix}"
     log += " ".join([f"{key}: {value:.4f}" for key, value in metrics.items()])
 
     return log
@@ -39,10 +39,7 @@ def evaluate(args, model, val_dataloader, accelerator):
     val_loss = MeanMetric().to(model.device)
 
     with torch.no_grad():
-        for i, batch in enumerate(
-            tqdm(val_dataloader),
-        ):
-                
+        for batch in tqdm(val_dataloader):
             loss = model(batch["input_ids"])
 
             loss_values = accelerator.gather_for_metrics({"loss": loss.detach()})
@@ -99,7 +96,7 @@ def train(args, accelerator):
 
     # training and generation.
     global_step = 0
-    for epoch in range(args.epochs):
+    for _ in range(args.epochs):
         for step, inputs in tqdm(enumerate(train_dataloader)):
             prompt_model.train()
             loss = prompt_model(inputs["input_ids"])
@@ -112,7 +109,7 @@ def train(args, accelerator):
             train_loss.update(loss_values["loss"])
             global_step +=1
 
-            
+
             if global_step %50 ==0:
                 accelerator.save_state(f"ultrachat_{args.model}/step_{global_step}")
 

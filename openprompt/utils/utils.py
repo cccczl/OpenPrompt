@@ -21,12 +21,9 @@ def round_list(l: List[float], max_sum:int):
         i = ceil(i)
         if s <= max_sum:
             s += i
-            if s <= max_sum:
-                l[idx] = i
-            else:
-                l[idx] = i - (s - max_sum)
+            l[idx] = i if s <= max_sum else i - (s - max_sum)
         else:
-            l[idx] = int(0)
+            l[idx] = 0
     assert sum(l) == max_sum
 
 
@@ -70,8 +67,7 @@ def check_config_conflicts(config: CfgNode):
     """
     if config.task == "generation":
         assert config['train'].teacher_forcing == True, "You should use teacher forcing to train generation!"
-    
-    if config.task == "generation":
+
         if  config.dataloader.max_seq_length >= config.generation.max_length:
             logger.warning("In generation, your config.generation.max_length is shorter than config.max_seq_length"
                 "This can lead to unexpected behavior. You should consider increasing ``config.generation.max_length``."

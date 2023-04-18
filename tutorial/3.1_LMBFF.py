@@ -11,8 +11,11 @@
 # parser.add_argument("--lr", type=float, default=5e-5)
 # args = parser.parse_args()
 from openprompt.data_utils.text_classification_dataset import SST2Processor
-dataset = {}
-dataset['train'] = SST2Processor().get_train_examples("../datasets/TextClassification/SST-2/16-shot/16-13")
+dataset = {
+    'train': SST2Processor().get_train_examples(
+        "../datasets/TextClassification/SST-2/16-shot/16-13"
+    )
+}
 dataset['validation'] = SST2Processor().get_dev_examples("../datasets/TextClassification/SST-2/16-shot/16-13")
 dataset['test'] = SST2Processor().get_test_examples("../datasets/TextClassification/SST-2/16-shot/16-13")
 
@@ -99,8 +102,7 @@ def evaluate(model, val_dataloader):
             labels = inputs['label']
             alllabels.extend(labels.cpu().tolist())
             allpreds.extend(torch.argmax(logits, dim=-1).cpu().tolist())
-    acc = sum([int(i==j) for i,j in zip(allpreds, alllabels)])/len(allpreds)
-    return acc
+    return sum(int(i==j) for i,j in zip(allpreds, alllabels)) / len(allpreds)
 
 
 # %% [markdown]
@@ -155,8 +157,22 @@ if auto_t:
         no_decay = ['bias', 'LayerNorm.weight']
         # it's always good practice to set no decay to biase and LayerNorm parameters
         optimizer_grouped_parameters = [
-            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            {
+                'params': [
+                    p
+                    for n, p in model.named_parameters()
+                    if all(nd not in n for nd in no_decay)
+                ],
+                'weight_decay': 0.01,
+            },
+            {
+                'params': [
+                    p
+                    for n, p in model.named_parameters()
+                    if any(nd in n for nd in no_decay)
+                ],
+                'weight_decay': 0.0,
+            },
         ]
 
         optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)
@@ -207,8 +223,22 @@ if auto_v:
         no_decay = ['bias', 'LayerNorm.weight']
         # it's always good practice to set no decay to biase and LayerNorm parameters
         optimizer_grouped_parameters = [
-            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            {
+                'params': [
+                    p
+                    for n, p in model.named_parameters()
+                    if all(nd not in n for nd in no_decay)
+                ],
+                'weight_decay': 0.01,
+            },
+            {
+                'params': [
+                    p
+                    for n, p in model.named_parameters()
+                    if any(nd in n for nd in no_decay)
+                ],
+                'weight_decay': 0.0,
+            },
         ]
 
         optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)
@@ -238,8 +268,22 @@ loss_func = torch.nn.CrossEntropyLoss()
 no_decay = ['bias', 'LayerNorm.weight']
 # it's always good practice to set no decay to biase and LayerNorm parameters
 optimizer_grouped_parameters = [
-    {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-    {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    {
+        'params': [
+            p
+            for n, p in model.named_parameters()
+            if all(nd not in n for nd in no_decay)
+        ],
+        'weight_decay': 0.01,
+    },
+    {
+        'params': [
+            p
+            for n, p in model.named_parameters()
+            if any(nd in n for nd in no_decay)
+        ],
+        'weight_decay': 0.0,
+    },
 ]
 
 optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)

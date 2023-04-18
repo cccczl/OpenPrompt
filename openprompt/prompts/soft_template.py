@@ -53,9 +53,8 @@ class SoftTemplate(Template):
         if soft_embeds is not None:
             self.soft_embeds = soft_embeds
             self.num_tokens = len(soft_embeds)
-        else:
-            if self.num_tokens>0:
-                self.generate_parameters()
+        elif self.num_tokens>0:
+            self.generate_parameters()
 
 
     def on_text_set(self):

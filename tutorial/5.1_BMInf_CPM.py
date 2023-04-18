@@ -79,8 +79,22 @@ no_decay = ['bias', 'LayerNorm.weight']
 print("names: ", [n for n, p in prompt_model.plm.named_parameters()])
 # it's always good practice to set no decay to biase and LayerNorm parameters
 optimizer_grouped_parameters1 = [
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if all(nd not in n for nd in no_decay)
+        ],
+        'weight_decay': 0.01,
+    },
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if any(nd in n for nd in no_decay)
+        ],
+        'weight_decay': 0.0,
+    },
 ]
 
 print("names: ", [n for n, p in prompt_model.template.named_parameters()])
@@ -129,6 +143,6 @@ for epoch in range(3):
             allpreds.extend(torch.argmax(logits, dim=-1).cpu().tolist())
             print("step :", step)
 
-    acc = sum([int(i==j) for i,j in zip(allpreds, alllabels)])/len(allpreds)
+    acc = sum(int(i==j) for i,j in zip(allpreds, alllabels)) / len(allpreds)
     print("accuracy:", acc)
 

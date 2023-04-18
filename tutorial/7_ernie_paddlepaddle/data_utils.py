@@ -40,8 +40,7 @@ class InputExample(object):
 
     def to_dict(self):
         r"""Serialize this instance to a Python dictionary."""
-        output = copy.deepcopy(self.__dict__)
-        return output
+        return copy.deepcopy(self.__dict__)
 
     def to_json_string(self):
         r"""Serialize this instance to a JSON string."""
@@ -107,8 +106,10 @@ class InputFeatures(dict):
         self.use_cache = use_cache
         self.input_ids_len = input_ids_len
 
-        for k in kwargs.keys():
-            logger.warning("Your are passing an unexpected key words: {} to InputFeatures, might yield unexpected behaviours!".format(k))
+        for k in kwargs:
+            logger.warning(
+                f"Your are passing an unexpected key words: {k} to InputFeatures, might yield unexpected behaviours!"
+            )
             setattr(self, k, kwargs[k])
 
     @classmethod
@@ -191,7 +192,7 @@ class InputFeatures(dict):
             value = getattr(self, key)
             if value is not None:
                 data[key] =  value
-            elif value is None and keep_none:
+            elif keep_none:
                 data[key] = None
         return data
 
@@ -203,7 +204,7 @@ class InputFeatures(dict):
 
     def __setitem__(self, key, item):
         if key not in self.all_keys:
-            raise KeyError("Key {} not in predefined set of keys".format(key))
+            raise KeyError(f"Key {key} not in predefined set of keys")
         setattr(self, key, item)
 
     def values(self, keep_none=False) -> List[Any]:

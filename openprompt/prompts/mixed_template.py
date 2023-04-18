@@ -123,20 +123,17 @@ class MixedTemplate(Template):
             d = {"add_prefix_space": ' ' if (i > 0 and text[i-1] == ' ') else ''}
             while i < len(text) and text[i] == ' ':
                 d["add_prefix_space"] = ' '
-                i = i + 1
+                i += 1
             if i == len(text): break
 
+            j = i + 1
             if text[i] != self.mixed_token_start:
-                j = i + 1
-                while j < len(text):
-                    if text[j] == self.mixed_token_start:
-                        break
+                while j < len(text) and text[j] != self.mixed_token_start:
                     j = j + 1
                 d["text"] = text[i:j].rstrip(' ')
                 i = j
 
             else:
-                j = i + 1
                 mixed_token_cnt = 1 # { {} {} } nested support
                 while j < len(text):
                     if text[j] == self.mixed_token_end:
@@ -152,7 +149,7 @@ class MixedTemplate(Template):
                     val = eval(dict_str)
                     if isinstance(val, set):
                         val = {k: None for k in val}
-                    d.update(val)
+                    d |= val
                 except:
                     import traceback
                     print(traceback.format_exc())

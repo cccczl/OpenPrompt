@@ -147,9 +147,11 @@ def load_plm_from_config(config: CfgNode):
     # you can change huggingface model_config here
     # if 't5'  in plm_config.model_name: # remove dropout according to PPT~\ref{}
     #     model_config.dropout_rate = 0.0
-    if 'gpt' in plm_config.model_name: # add pad token for gpt
-        if "<pad>" not in config.plm.specials_to_add:
-            config.plm.specials_to_add.append("<pad>")
+    if (
+        'gpt' in plm_config.model_name
+        and "<pad>" not in config.plm.specials_to_add
+    ):
+        config.plm.specials_to_add.append("<pad>")
     model = model_class.model.from_pretrained(plm_config.model_path, config=model_config)
     tokenizer = model_class.tokenizer.from_pretrained(plm_config.model_path)
     wrapper = model_class.wrapper
@@ -175,11 +177,10 @@ def add_special_tokens(model: PreTrainedModel,
     if specials_to_add is None:
         return model, tokenizer
     for token in specials_to_add:
-        if "pad" in token.lower():
-            if tokenizer.pad_token is None:
-                tokenizer.add_special_tokens({'pad_token': token})
-                model.resize_token_embeddings(len(tokenizer))
-                logger.info("pad token is None, set to id {}".format(tokenizer.pad_token_id))
+        if "pad" in token.lower() and tokenizer.pad_token is None:
+            tokenizer.add_special_tokens({'pad_token': token})
+            model.resize_token_embeddings(len(tokenizer))
+            logger.info(f"pad token is None, set to id {tokenizer.pad_token_id}")
     return model, tokenizer
 
 

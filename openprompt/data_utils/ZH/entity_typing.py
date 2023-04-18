@@ -172,7 +172,7 @@ class DH_MSRA(CLSProcessor):
     def get_examples(self, data_dir, split):
         if split != 'train': raise ValueError
         path = os.path.join(data_dir, f"{split}.txt")
-        
+
         with open(path, encoding='utf8') as f:
             xs, ys = [], []
             for line in f:
@@ -182,8 +182,7 @@ class DH_MSRA(CLSProcessor):
                     while i < len(xs):
                         if ys[i][0] == 'B':
                             j = i + 1
-                            while j < len(xs):
-                                if ys[j][0] == 'O': break
+                            while j < len(xs) and ys[j][0] != 'O':
                                 j = j + 1
 
                             example = InputExample(
@@ -195,7 +194,7 @@ class DH_MSRA(CLSProcessor):
                                 tgt_text = self.get_label(ys[i][2:]),
                             )
                             examples.append(example)
-                            
+
                             i = j
                         else:
                             i = i + 1

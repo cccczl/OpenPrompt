@@ -14,10 +14,10 @@ def config_experiment_dir(config):
     """
     if not os.path.exists(config.logging.path_base):
         raise NotADirectoryError(f"logging base directory `{config.logging.path_base}` not found, you should create one.")
-    
-    # generate unique string
-    temp_strs = []
+
     if config.logging.unique_string is None:
+        # generate unique string
+        temp_strs = []
         for item in config.logging.unique_string_keys:
             if item == "datetime":
                 continue
@@ -32,12 +32,14 @@ def config_experiment_dir(config):
                 try:
                     subconfig = str(subconfig)
                 except:
-                    print("The value of subconfig key {} can't be converted to a string".format(".".join(item)))
+                    print(
+                        f"""The value of subconfig key {".".join(item)} can't be converted to a string"""
+                    )
                     continue
-            
+
             subconfig = subconfig.split("/")[-1]
             temp_strs.append(subconfig)
-        
+
         if 'datetime' in config.logging.unique_string_keys:
             if config.logging.datetime_format is None:
                 config.logging.datetime_format = '%y%m%d%H%M%S'
@@ -45,17 +47,14 @@ def config_experiment_dir(config):
             temp_strs.append(time_str)
         config.logging.unique_string = "_".join(temp_strs)
     config.logging.path = os.path.join(config.logging.path_base, config.logging.unique_string)
-    
+
     # create the log directory
     if os.path.exists(config.logging.path):
-        if config.logging.overwrite:
-            import shutil
-            shutil.rmtree(config.logging.path)
-            os.mkdir(config.logging.path)
-        else:
+        if not config.logging.overwrite:
             raise FileExistsError("Log dir {} exists and can't overwrite!")
-    else:
-        os.mkdir(config.logging.path)
+        import shutil
+        shutil.rmtree(config.logging.path)
+    os.mkdir(config.logging.path)
     return config.logging.path
 
  

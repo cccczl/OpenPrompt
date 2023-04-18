@@ -74,8 +74,22 @@ no_decay = ['bias', 'LayerNorm.weight']
 
 # it's always good practice to set no decay to biase and LayerNorm parameters
 optimizer_grouped_parameters1 = [
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-    {'params': [p for n, p in prompt_model.plm.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if all(nd not in n for nd in no_decay)
+        ],
+        'weight_decay': 0.01,
+    },
+    {
+        'params': [
+            p
+            for n, p in prompt_model.plm.named_parameters()
+            if any(nd in n for nd in no_decay)
+        ],
+        'weight_decay': 0.0,
+    },
 ]
 
 # Using different optimizer for prompt parameters and model parameters
@@ -86,7 +100,7 @@ optimizer_grouped_parameters2 = [
 optimizer1 = AdamW(optimizer_grouped_parameters1, lr=1e-4)
 optimizer2 = AdamW(optimizer_grouped_parameters2, lr=1e-3)
 
-for epoch in range(10):
+for _ in range(10):
     tot_loss = 0
     for step, inputs in enumerate(train_dataloader):
         if use_cuda:
@@ -121,5 +135,5 @@ for step, inputs in enumerate(validation_dataloader):
     alllabels.extend(labels.cpu().tolist())
     allpreds.extend(torch.argmax(logits, dim=-1).cpu().tolist())
 
-acc = sum([int(i==j) for i,j in zip(allpreds, alllabels)])/len(allpreds)
+acc = sum(int(i==j) for i,j in zip(allpreds, alllabels)) / len(allpreds)
 print(acc)

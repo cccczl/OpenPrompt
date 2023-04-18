@@ -282,12 +282,12 @@ class RatingShopping(CLSProcessor):
     def get_examples(self, data_dir, split):
         if split != 'train': raise ValueError
         path = os.path.join(data_dir, f"{split}.csv")
-        
+
         with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=",")
             for i, row in enumerate(reader):
                 if i==0: continue
-                rating, text = row[2], row[4]+","+row[5]
+                rating, text = row[2], f"{row[4]},{row[5]}"
                 if rating not in self.labels_origin: continue # illegal
                 example = InputExample(
                     meta = {

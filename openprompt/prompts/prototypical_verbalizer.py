@@ -73,10 +73,7 @@ class ProtoVerbalizer(Verbalizer):
     def group_parameters_proto(self,):
         r"""Include the last layer's parameters
         """
-        if isinstance(self.head, torch.nn.Linear):
-            return [p for n, p in self.head.named_parameters()] + [self.proto]
-        else:
-            return [p for n, p in self.head.named_parameters()] + [self.proto]
+        return [p for n, p in self.head.named_parameters()] + [self.proto]
 
     def on_label_words_set(self):
         self.label_words = self.add_prefix(self.label_words, self.prefix)
@@ -120,8 +117,10 @@ class ProtoVerbalizer(Verbalizer):
                 ids_per_label.append(ids)
             all_ids.append(ids_per_label)
 
-        max_len  = max([max([len(ids) for ids in ids_per_label]) for ids_per_label in all_ids])
-        max_num_label_words = max([len(ids_per_label) for ids_per_label in all_ids])
+        max_len = max(
+            max(len(ids) for ids in ids_per_label) for ids_per_label in all_ids
+        )
+        max_num_label_words = max(len(ids_per_label) for ids_per_label in all_ids)
         words_ids_mask = torch.zeros(max_num_label_words, max_len)
         words_ids_mask = [[[1]*len(ids) + [0]*(max_len-len(ids)) for ids in ids_per_label]
                              + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
@@ -139,8 +138,7 @@ class ProtoVerbalizer(Verbalizer):
     def process_hiddens(self, hiddens: torch.Tensor, **kwargs):
         r"""A whole framework to process the original logits over the vocabulary, which contains four steps:
         """
-        proto_logits = self.sim(self.head(hiddens), self.proto)
-        return proto_logits
+        return self.sim(self.head(hiddens), self.proto)
 
     def project(self,
                 logits: torch.Tensor,
@@ -184,20 +182,14 @@ class ProtoVerbalizer(Verbalizer):
         label_words_logits = self.project(logits, **kwargs)  #Output: (batch_size, num_classes) or  (batch_size, num_classes, num_label_words_per_label)
 
 
-        if self.post_log_softmax:
-            # normalize
-            # label_words_probs = self.normalize(label_words_logits)
+        if (
+            self.post_log_softmax
+            and hasattr(self, "_calibrate_logits")
+            and self._calibrate_logits is not None
+        ):
+            label_words_probs = self.calibrate(label_words_probs=label_words_probs)
 
-            # calibrate
-            if  hasattr(self, "_calibrate_logits") and self._calibrate_logits is not None:
-                label_words_probs = self.calibrate(label_words_probs=label_words_probs)
-
-            # convert to logits
-            # label_words_logits = torch.log(label_words_probs+1e-15)
-
-        # aggregate
-        label_logits = self.aggregate(label_words_logits)
-        return label_logits
+        return self.aggregate(label_words_logits)
 
     def normalize(self, logits: torch.Tensor) -> torch.Tensor:
         """
@@ -276,7 +268,9 @@ class ProtoVerbalizer(Verbalizer):
         logits = outputs.logits
         if isinstance(outputs, Seq2SeqLMOutput):
             ret = outputs.decoder_hidden_states[-1]
-        elif isinstance(outputs, MaskedLMOutput) or isinstance(outputs, CausalLMOutputWithCrossAttentions):
+        elif isinstance(
+            outputs, (MaskedLMOutput, CausalLMOutputWithCrossAttentions)
+        ):
             ret = outputs.hidden_states[-1]
         else:
             try:
@@ -313,17 +307,15 @@ class ProtoVerbalizer(Verbalizer):
             neg_ins = (sim_instance.sum(0) - pos_ins).sum(0)
             loss_ins += - torch.log(pos_ins / (pos_ins + neg_ins)).sum()
         loss_ins = loss_ins / (num * self.num_classes * num * self.num_classes)
-        loss = loss + loss_ins
-
-        return loss
+        return loss + loss_ins
 
 
     def train_proto(self, model, dataloader, device):
         model.eval()
         embeds = [[] for _ in range(self.num_classes)]
         with torch.no_grad():
-            for i, batch in enumerate(dataloader):
-                batch = batch.to("cuda:{}".format(device)).to_dict()
+            for batch in dataloader:
+                batch = batch.to(f"cuda:{device}").to_dict()
                 outputs = model.prompt_model(batch)
                 hidden, _ = self.gather_outputs(outputs)
                 outputs_at_mask = model.extract_at_mask(hidden, batch)
@@ -335,13 +327,13 @@ class ProtoVerbalizer(Verbalizer):
 
         instance_mean = embeds.mean(1)
         loss = 0.
-        for epoch in range(self.epochs):
+        for _ in range(self.epochs):
             x = self.head(embeds)
             self.optimizer.zero_grad()
             loss = self.pcl_loss(x)
             loss.backward()
             self.optimizer.step()
-        logger.info("Total epoch: {}. ProtoVerb loss: {}".format(self.epochs, loss))
+        logger.info(f"Total epoch: {self.epochs}. ProtoVerb loss: {loss}")
         self.trained = True
 
 

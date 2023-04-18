@@ -25,14 +25,16 @@ from openprompt.utils.cuda import model_to_device
 
 def build_dataloader(dataset, template, tokenizer,tokenizer_wrapper_class, config, split):
     dataloader = PromptDataLoader(
-        dataset = dataset,
-        template = template,
-        tokenizer = tokenizer,
+        dataset=dataset,
+        template=template,
+        tokenizer=tokenizer,
         tokenizer_wrapper_class=tokenizer_wrapper_class,
-        batch_size = config[split].batch_size,
-        shuffle = config[split].shuffle_data,
-        teacher_forcing = config[split].teacher_forcing if hasattr(config[split],'teacher_forcing') else None,
-        predict_eos_token = True if config.task == "generation" else False,
+        batch_size=config[split].batch_size,
+        shuffle=config[split].shuffle_data,
+        teacher_forcing=config[split].teacher_forcing
+        if hasattr(config[split], 'teacher_forcing')
+        else None,
+        predict_eos_token=config.task == "generation",
         **config.dataloader
     )
     return dataloader
@@ -183,14 +185,13 @@ def trainer(EXP_PATH, config, Processor, train_dataset = None, valid_dataset = N
         )
 
     if zero:
-        res = runner.test()
+        return runner.test()
     elif test:
-        res = runner.test(ckpt = 'best')
+        return runner.test(ckpt = 'best')
     elif resume:
-        res = runner.run(ckpt = 'last')
+        return runner.run(ckpt = 'last')
     else:
-        res = runner.run()
-    return res
+        return runner.run()
 
 
 if __name__ == "__main__":

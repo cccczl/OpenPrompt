@@ -17,10 +17,7 @@ def get_config_from_file(path):
     return cfg
 
 def get_user_config(usr_config_path, default_config=None):
-    if default_config is None:
-        config = get_default_config()
-    else:
-        config = default_config
+    config = get_default_config() if default_config is None else default_config
     # get user config
     usr_config = get_config_from_file(usr_config_path)
     config.merge_from_other_cfg(usr_config)
@@ -42,7 +39,7 @@ def get_conditional_config(config):
     # breadth first search over all config nodes
     queue = [config]
 
-    while len(queue) > 0:
+    while queue:
         v = queue.pop(0)
         ordv = OrderedDict(v.copy())
         while(len(ordv)>0):
@@ -66,8 +63,9 @@ def convert_cfg_to_dict(cfg_node, key_list=[]):
     """ Convert a config node to dictionary """
     if not isinstance(cfg_node, CfgNode):
         if type(cfg_node) not in _VALID_TYPES:
-            print("Key {} with value {} is not a valid type; valid types: {}".format(
-                ".".join(key_list), type(cfg_node), _VALID_TYPES), )
+            print(
+                f'Key {".".join(key_list)} with value {type(cfg_node)} is not a valid type; valid types: {_VALID_TYPES}'
+            )
         return cfg_node
     else:
         cfg_dict = dict(cfg_node)
@@ -80,20 +78,24 @@ def add_cfg_to_argparser(cfg, parser, prefix=None):
     """
     for key in cfg:
         value = cfg[key]
-        full_key_name = prefix+"."+key if prefix is not None else key
+        full_key_name = f"{prefix}.{key}" if prefix is not None else key
         if isinstance(value, CfgNode):
             add_cfg_to_argparser(value, parser=parser, prefix=full_key_name)
+        elif type(value) in [str, int, float]:
+            parser.add_argument(f"--{full_key_name}", type=type(value), default=value)
+        elif type(value) in [tuple, list]:
+            parser.add_argument(
+                f"--{full_key_name}",
+                type=type(value),
+                default=value,
+                nargs="+",
+            )
+        elif type(value) == bool:
+            parser.add_argument(f"--{full_key_name}", action=f'store_{not value}'.lower())
+        elif type(value) == type(None):
+            parser.add_argument(f"--{full_key_name}", default=None)
         else:
-            if type(value) in [str, int, float]:
-                parser.add_argument("--"+full_key_name, type=type(value), default=value)
-            elif type(value) in [tuple, list]:
-                parser.add_argument("--"+full_key_name, type=type(value), default=value, nargs="+")
-            elif type(value) == bool:
-                parser.add_argument("--"+full_key_name, action='store_{}'.format(not value).lower())
-            elif type(value) == type(None):
-                parser.add_argument("--"+full_key_name, default=None)
-            else:
-                raise NotImplementedError("The type of config value is not supported")
+            raise NotImplementedError("The type of config value is not supported")
 
 
 def update_cfg_with_argparser(cfg, args, prefix=None):
@@ -101,7 +103,7 @@ def update_cfg_with_argparser(cfg, args, prefix=None):
     """
     for key in cfg:
         value = cfg[key]
-        full_key_name = prefix+"."+key if prefix is not None else key
+        full_key_name = f"{prefix}.{key}" if prefix is not None else key
         if isinstance(value, CfgNode):
             update_cfg_with_argparser(value, args, prefix=full_key_name)
         else:
@@ -110,7 +112,7 @@ def update_cfg_with_argparser(cfg, args, prefix=None):
                 raise TypeError
             if v != value:
                 cfg[key] = v
-                print("Update key {}, value {} -> {}".format(full_key_name, value, v))
+                print(f"Update key {full_key_name}, value {value} -> {v}")
 
 
 def save_config_to_yaml(config):
@@ -118,7 +120,7 @@ def save_config_to_yaml(config):
     saved_yaml_path = os.path.join(config.logging.path, "config.yaml")
     with open(saved_yaml_path, 'w') as f:
         with redirect_stdout(f): print(config.dump())
-    logger.info("Config saved as {}".format(saved_yaml_path))
+    logger.info(f"Config saved as {saved_yaml_path}")
 
 def get_config():
     parser = argparse.ArgumentParser("Global Config Argument Parser", allow_abbrev=False)

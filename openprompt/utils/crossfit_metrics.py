@@ -203,7 +203,7 @@ def evaluate(predictions, data, metric, **kwargs):
             f1s.append(get_f1_over_list(prediction, dp))
         return np.mean(f1s)
     elif metric == "Classification-F1":
-        return f1_score([dp for dp in data], predictions, average="macro")
+        return f1_score(list(data), predictions, average="macro")
     elif metric == "Matthew-Correlation": # haven't be tested
         return get_matthews_corr(data, predictions)
     elif metric == "Pearson-Correlation": # haven't be tested
@@ -240,8 +240,7 @@ def qa_f1_score(prediction, ground_truth):
         return 0
     precision = 1.0 * num_same / len(prediction_tokens)
     recall = 1.0 * num_same / len(ground_truth_tokens)
-    f1 = (2 * precision * recall) / (precision + recall)
-    return f1
+    return (2 * precision * recall) / (precision + recall)
 
 def accuracy(prediction, ground_truth, **kwargs):
     if isinstance(prediction, str) and isinstance(ground_truth, str):

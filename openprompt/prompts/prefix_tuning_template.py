@@ -174,10 +174,7 @@ class PrefixTuningTemplate(Template):
         batch_size = batch['input_ids'].size(0)
         self.past_key_values = self.get_past_key_values()
 
-        if self.config.is_encoder_decoder:
-            # the attention_mask is encoder attention mask, the new token mask will be added in modified_encoder_forward.
-            pass
-        else: # the attention_mask is decoder attention mask
+        if not self.config.is_encoder_decoder:
             past_key_values = self.expand_to_batchsize(self.past_key_values[1], batch_size)
             if 'attention_mask' in batch:
                 am = batch['attention_mask']

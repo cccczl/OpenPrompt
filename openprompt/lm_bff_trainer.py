@@ -23,14 +23,16 @@ class ManualTemplateWithoutParse(ManualTemplate):
 
 def build_dataloader(dataset, template, tokenizer,tokenizer_wrapper_class, config, split):
     dataloader = PromptDataLoader(
-        dataset = dataset,
-        template = template,
-        tokenizer = tokenizer,
+        dataset=dataset,
+        template=template,
+        tokenizer=tokenizer,
         tokenizer_wrapper_class=tokenizer_wrapper_class,
-        batch_size = config[split].batch_size,
-        shuffle = config[split].shuffle_data,
-        teacher_forcing = config[split].teacher_forcing if hasattr(config[split],'teacher_forcing') else None,
-        predict_eos_token = True if config.task == "generation" else False,
+        batch_size=config[split].batch_size,
+        shuffle=config[split].shuffle_data,
+        teacher_forcing=config[split].teacher_forcing
+        if hasattr(config[split], 'teacher_forcing')
+        else None,
+        predict_eos_token=config.task == "generation",
         **config.dataloader
     )
     return dataloader
@@ -102,7 +104,7 @@ class LMBFFClassificationRunner:
         for data in dataloader:
             data = template.process_batch(data)
             if self.config.environment.num_gpus > 0:
-                data = data.to("cuda:{}".format(self.config.environment.local_rank))
+                data = data.to(f"cuda:{self.config.environment.local_rank}")
             verbalizer_generator.register_buffer(data)
         label_words_list = verbalizer_generator.generate() # List[List[str]]
         verbalizer_generator.release_memory()
@@ -121,7 +123,7 @@ class LMBFFClassificationRunner:
             if score > best_metrics:
                 best_metrics = score
                 best_template_text = template_text
-                logger.info('best template:' + str(best_template_text))
+                logger.info(f'best template:{str(best_template_text)}')
         return best_template_text
 
     def _get_best_label_words(self, verbalizer_labelwords_candidates, template, verbalizer):
@@ -136,15 +138,14 @@ class LMBFFClassificationRunner:
             if score > best_metrics:
                 best_metrics = score
                 best_label_words = label_words
-                logger.info('best label words:' + str(best_label_words))
+                logger.info(f'best label words:{str(best_label_words)}')
         return best_label_words
 
     def _train_eval(self, template, verbalizer, train_dataloader, valid_dataloader):
         model = PromptForClassification(copy.deepcopy(self.model), template, verbalizer)
         runner = ClassificationRunner(model, config=self.config, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader)
         runner.clean = True
-        best_score = runner.fit()
-        return best_score
+        return runner.fit()
 
     def run(self):
         r"""

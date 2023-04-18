@@ -60,7 +60,7 @@ class SNLIProcessor(DataProcessor):
             lines = f.readlines()
             for idx, line in enumerate(lines[1:]):
                 linelist = line.strip().split('\t')
-                guid = "%s-%s" % (split, idx)
+                guid = f"{split}-{idx}"
                 label = linelist[-1]
                 text_a = linelist[7]
                 text_b = linelist[8]

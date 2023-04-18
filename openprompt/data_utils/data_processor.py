@@ -61,7 +61,7 @@ class DataProcessor:
     def id2label(self) -> Dict[int, Any]:
         if not hasattr(self, "_labels"):
             raise ValueError("DataProcessor doesn't set labels or label_mapping yet")
-        return {i: k for (i, k) in enumerate(self._labels)}
+        return dict(enumerate(self._labels))
 
 
     def get_label_id(self, label: Any) -> int:

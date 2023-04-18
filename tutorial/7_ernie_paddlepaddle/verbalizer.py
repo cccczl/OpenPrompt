@@ -49,7 +49,7 @@ class Verbalizer(paddle.nn.Layer):
         # else:
         #     logger.warning("Reset label words in on_label_words_set function. Is this intended?")
 
-    def _match_label_words_to_label_ids(self, label_words): # TODO newly add function after docs written # TODO rename this function
+    def _match_label_words_to_label_ids(self, label_words):    # TODO newly add function after docs written # TODO rename this function
         """
         sort label words dict of verbalizer to match the label order of the classes
         """
@@ -65,14 +65,9 @@ class Verbalizer(paddle.nn.Layer):
                 label_words[c]
                 for c in self.classes
             ] # length: label_size of the whole task
-        elif isinstance(label_words, list) or isinstance(label_words, tuple):
-            pass
-            # logger.info("""
-            # Your given label words is a list, by default, the ith label word in the list will match class i of the dataset.
-            # Please make sure that they have the same order.
-            # Or you can pass label words as a dict, mapping from class names to label words.
-            # """)
-        else:
+        elif not isinstance(label_words, list) and not isinstance(
+            label_words, tuple
+        ):
             raise ValueError("Verbalizer label words must be list, tuple or dict")
         return label_words
 
@@ -128,7 +123,9 @@ class Verbalizer(paddle.nn.Layer):
         elif self.multi_token_handler == "mean":
             label_words_logits = (label_words_logits*mask.unsqueeze(0)).sum(dim=-1)/(mask.unsqueeze(0).sum(dim=-1)+1e-15)
         else:
-            raise ValueError("multi_token_handler {} not configured".format(self.multi_token_handler))
+            raise ValueError(
+                f"multi_token_handler {self.multi_token_handler} not configured"
+            )
         return label_words_logits
 
 class ErnieManualVerbalizer(Verbalizer):
@@ -202,8 +199,7 @@ class ErnieManualVerbalizer(Verbalizer):
             ):
         label1 = self.label_words_ids[0]
         label2 = self.label_words_ids[1]
-        tmp = []
-        tmp.append(logits.index_select(label1,axis=-1))
+        tmp = [logits.index_select(label1, axis=-1)]
         tmp.append(logits.index_select(label2,axis=-1))
         label_words_logits = paddle.concat(tmp,axis=1).reshape([logits.shape[0],self.label_words_ids.shape[0],self.label_words_ids.shape[1]])
 #         label_words_logits = logits[:, self.label_words_ids]
@@ -235,8 +231,10 @@ class ErnieManualVerbalizer(Verbalizer):
                 ids_per_label.append(ids)
             all_ids.append(ids_per_label)
 
-        max_len  = max([max([len(ids) for ids in ids_per_label]) for ids_per_label in all_ids])
-        max_num_label_words = max([len(ids_per_label) for ids_per_label in all_ids])
+        max_len = max(
+            max(len(ids) for ids in ids_per_label) for ids_per_label in all_ids
+        )
+        max_num_label_words = max(len(ids_per_label) for ids_per_label in all_ids)
         words_ids_mask = paddle.zeros([max_num_label_words, max_len])
         words_ids_mask = [[[1]*len(ids) + [0]*(max_len-len(ids)) for ids in ids_per_label]
                              + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
@@ -244,9 +242,9 @@ class ErnieManualVerbalizer(Verbalizer):
         words_ids = [[ids + [0]*(max_len-len(ids)) for ids in ids_per_label]
                              + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
                              for ids_per_label in all_ids]
-        
-        
-        
+
+
+
         words_ids_tensor = paddle.to_tensor(words_ids)
         words_ids_mask = paddle.to_tensor(words_ids_mask)
         self.label_words_ids = words_ids_tensor
@@ -303,9 +301,7 @@ class ErnieManualVerbalizer(Verbalizer):
             label_words_logits = paddle.log(label_words_probs+1e-15)
             label_words_logits = label_words_logits
 
-        # aggregate
-        label_logits = self.aggregate(label_words_logits)
-        return label_logits
+        return self.aggregate(label_words_logits)
 
     def normalize(self, logits):
 
